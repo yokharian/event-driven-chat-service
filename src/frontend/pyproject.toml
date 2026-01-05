@@ -1,0 +1,16 @@
+[project]
+name = "scalable-chat-frontend"
+version = "0.1.0"
+description = "Frontend UI for scalable chat service with Streamlit and WebSocket"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit>=1.39.0",
+    "websockets>=13.0",
+    "requests>=2.32.0",
+    "pydantic>=2.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
