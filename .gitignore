@@ -392,3 +392,10 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# localstack files
+.localstack
+
+# artifacts
+.jbeval/
+.run/

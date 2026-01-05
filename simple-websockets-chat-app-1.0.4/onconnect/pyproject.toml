@@ -1,0 +1,12 @@
+[project]
+name = "onconnect"
+version = "1.0.0"
+description = "onconnect example for WebSockets on API Gateway"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.35.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
