@@ -84,16 +84,13 @@ export DYNAMODB_ENDPOINT_URL=http://localhost:4566
 websocket_api/
 ├── onconnect/
 │   ├── app.py              # Connection handler using DAL
-│   ├── pyproject.toml      # Dependencies
-│   └── Makefile            # Build script (copies commons)
+│   └── pyproject.toml      # Dependencies
 ├── ondisconnect/
 │   ├── app.py              # Disconnection handler using DAL
-│   ├── pyproject.toml      # Dependencies
-│   └── Makefile            # Build script (copies commons)
+│   └── pyproject.toml      # Dependencies
 ├── sendmessage/
 │   ├── app.py              # Message broadcast handler using DAL
-│   ├── pyproject.toml      # Dependencies
-│   └── Makefile            # Build script (copies commons)
+│   └── pyproject.toml      # Dependencies
 ├── settings.py             # Shared settings module
 ├── template.yaml           # SAM template
 └── README.md              # This file

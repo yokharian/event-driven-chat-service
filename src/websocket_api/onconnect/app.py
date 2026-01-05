@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.parser import event_parser
-from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketConnectEvent
+from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketConnectEventModel
 
 # Add project root to path to import commons
 # In Lambda, the package root is the function directory, so we need to go up
@@ -29,8 +29,8 @@ repository = DynamoDBRepository(
 )
 
 
-@event_parser(model=APIGatewayWebSocketConnectEvent)
-def handler(event: APIGatewayWebSocketConnectEvent, context: Any) -> Dict[str, Any]:
+@event_parser(model=APIGatewayWebSocketConnectEventModel)
+def handler(event: APIGatewayWebSocketConnectEventModel, context: Any) -> Dict[str, Any]:
     """
     Handle WebSocket connection event.
     

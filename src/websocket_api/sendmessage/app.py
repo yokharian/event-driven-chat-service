@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.parser import event_parser
-from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketMessageEvent
+from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketMessageEventModel
 from botocore.exceptions import ClientError
 
 # Add project root to path to import commons
@@ -32,8 +32,8 @@ repository = DynamoDBRepository(
 )
 
 
-@event_parser(model=APIGatewayWebSocketMessageEvent)
-def handler(event: APIGatewayWebSocketMessageEvent, context: Any) -> Dict[str, Any]:
+@event_parser(model=APIGatewayWebSocketMessageEventModel)
+def handler(event: APIGatewayWebSocketMessageEventModel, context: Any) -> Dict[str, Any]:
     """
     Handle sending messages to all connected WebSocket clients.
     

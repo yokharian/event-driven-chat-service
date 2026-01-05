@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.parser import event_parser
-from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketDisconnectEvent
+from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketDisconnectEventModel
 
 # Add project root to path to import commons
 # In Lambda, the package root is the function directory, so we need to go up
@@ -29,8 +29,8 @@ repository = DynamoDBRepository(
 )
 
 
-@event_parser(model=APIGatewayWebSocketDisconnectEvent)
-def handler(event: APIGatewayWebSocketDisconnectEvent, context: Any) -> Dict[str, Any]:
+@event_parser(model=APIGatewayWebSocketDisconnectEventModel)
+def handler(event: APIGatewayWebSocketDisconnectEventModel, context: Any) -> Dict[str, Any]:
     """
     Handle WebSocket disconnection event.
     
