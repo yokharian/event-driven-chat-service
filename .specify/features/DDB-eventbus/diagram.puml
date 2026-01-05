@@ -1,0 +1,40 @@
+@startuml
+!theme sketchy-outline
+
+skinparam componentStyle rectangle
+skinparam wrapWidth 200
+skinparam maxMessageSize 150
+skinparam shadowing false
+
+package "Event & Storage" {
+  component "DynamoDB\nchat-events\n(idempotency key)\nSOURCE OF TRUTH" as DDB
+}
+
+package "Consumers" {
+  component "Lambda\nchatbot_consumer\nEVENT BUS PUB-SUB" as BOT
+  component "Lambda\nchatapp_consumer\nEVENT BUS SUBSCRIBER" as APP
+}
+
+package "Failure Handling" {
+  queue "DLQ\nchatbot_consumer_dlq" as BOTDLQ
+  queue "DLQ\nchatapp_consumer_dlq" as APPDLQ
+}
+
+package "API Layer" {
+  component "REST Backend\n(WebSocket / HTTP API)" as BACKEND
+}
+
+' ---- Event triggers (DynamoDB Streams) ----
+DDB --> BOT : Stream trigger
+DDB --> APP : Stream trigger
+
+' ---- Chatbot behavior ----
+BOT --> DDB : Write message\nrole=AI
+
+' ---- Chat app behavior ----
+APP --> BACKEND : HTTP REST request\nbroadcast message
+
+' ---- Failure paths ----
+BOT -down-> BOTDLQ : retries exhausted
+APP -down-> APPDLQ : retries exhausted
+@enduml
