@@ -1,0 +1,671 @@
+openapi: 3.0.3
+info:
+  title: Event-Driven Chat Service API
+  description: |
+    Serverless chat service API built with AWS API Gateway (WebSocket + REST) and Lambda functions.
+    Messages are persisted to DynamoDB and processed via DynamoDB Streams for AI agent responses
+    and real-time delivery to WebSocket connections.
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    description: AWS API Gateway endpoint
+    variables:
+      apiId:
+        default: your-api-id
+      region:
+        default: us-east-1
+      stage:
+        default: prod
+  - url: ws://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    description: AWS API Gateway WebSocket endpoint
+    variables:
+      apiId:
+        default: your-api-id
+      region:
+        default: us-east-1
+      stage:
+        default: prod
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Conversations
+    description: Conversation management endpoints
+  - name: Messages
+    description: Message sending and retrieval endpoints
+  - name: Channels
+    description: Channel-based messaging endpoints (from PRD)
+  - name: WebSocket
+    description: WebSocket connection management
+  - name: Internal
+    description: Internal endpoints for Lambda workers
+
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: Root endpoint
+      description: Returns API information
+      operationId: root
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Scalable Chat Service API
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Health check endpoint for monitoring and load balancers
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /conversations:
+    post:
+      tags:
+        - Conversations
+      summary: Create a new conversation
+      description: Creates a new conversation and returns its metadata
+      operationId: createConversation
+      responses:
+        '201':
+          description: Conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /conversations/{conversation_id}:
+    get:
+      tags:
+        - Conversations
+      summary: Get conversation by ID
+      description: Retrieves conversation metadata by ID
+      operationId: getConversation
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          description: Unique identifier for the conversation
+          schema:
+            type: string
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Conversation found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messages:
+    post:
+      tags:
+        - Messages
+      summary: Send a message
+      description: |
+        Sends a message to a conversation. If the conversation doesn't exist, it will be
+        auto-created. The message is persisted to DynamoDB and triggers downstream processing
+        via DynamoDB Streams.
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /conversations/{conversation_id}/messages:
+    get:
+      tags:
+        - Messages
+      summary: Get messages for a conversation
+      description: Retrieves all messages for a specific conversation, sorted by creation time
+      operationId: getMessages
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          description: Unique identifier for the conversation
+          schema:
+            type: string
+            example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of messages to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: last_evaluated_key
+          in: query
+          required: false
+          description: Pagination token for retrieving next page
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MessageResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /channels:
+    get:
+      tags:
+        - Channels
+      summary: List available channels
+      description: Returns a list of all available channels that users can subscribe to
+      operationId: listChannels
+      responses:
+        '200':
+          description: List of channels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Channel'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /channels/{channel_id}/messages:
+    get:
+      tags:
+        - Channels
+      summary: Query message history for a channel
+      description: |
+        Retrieves paginated message history for a specific channel. Messages are sorted
+        by timestamp in descending order (newest first).
+      operationId: getChannelMessages
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          description: Unique identifier for the channel
+          schema:
+            type: string
+            example: "general"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of messages to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: last_evaluated_key
+          in: query
+          required: false
+          description: Pagination token for retrieving next page
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          required: false
+          description: Start timestamp for filtering messages (Unix timestamp)
+          schema:
+            type: integer
+            example: 1704067200
+        - name: end_time
+          in: query
+          required: false
+          description: End timestamp for filtering messages (Unix timestamp)
+          schema:
+            type: integer
+            example: 1704153600
+      responses:
+        '200':
+          description: List of messages for the channel
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChannelMessage'
+                  last_evaluated_key:
+                    type: string
+                    description: Pagination token for next page
+                    nullable: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Channels
+      summary: Send message to a channel via REST
+      description: |
+        Alternative to WebSocket for sending messages. Sends a message to a specific channel.
+        The message is persisted to DynamoDB and triggers downstream processing via DynamoDB Streams.
+      operationId: sendChannelMessage
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          description: Unique identifier for the channel
+          schema:
+            type: string
+            example: "general"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelMessageCreate'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelMessage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /internal/broadcast:
+    post:
+      tags:
+        - Internal
+      summary: Internal broadcast endpoint
+      description: |
+        Internal endpoint for the Delivery Worker Lambda to trigger message broadcasts.
+        In production, this is handled by API Gateway WebSocket APIs and the Management API.
+      operationId: broadcastMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversation_id
+                - content
+              properties:
+                conversation_id:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Broadcast triggered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "broadcast_sent"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    ConversationResponse:
+      type: object
+      required:
+        - id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the conversation
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when conversation was created
+          example: "2024-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when conversation was last updated
+          example: "2024-01-01T00:00:00Z"
+
+    MessageCreate:
+      type: object
+      required:
+        - conversation_id
+        - content
+        - role
+      properties:
+        conversation_id:
+          type: string
+          description: Unique identifier for the conversation
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        content:
+          type: string
+          description: Message content/text
+          example: "Hello, how are you?"
+        role:
+          type: string
+          description: Role of the message sender
+          enum:
+            - user
+            - assistant
+            - system
+          example: "user"
+
+    MessageResponse:
+      type: object
+      required:
+        - id
+        - conversation_id
+        - role
+        - content
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the message
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        conversation_id:
+          type: string
+          description: Unique identifier for the conversation
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        role:
+          type: string
+          description: Role of the message sender
+          enum:
+            - user
+            - assistant
+            - system
+          example: "user"
+        content:
+          type: string
+          description: Message content/text
+          example: "Hello, how are you?"
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when message was created
+          example: "2024-01-01T00:00:00Z"
+
+    Channel:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the channel
+          example: "general"
+        name:
+          type: string
+          description: Display name of the channel
+          example: "General"
+        description:
+          type: string
+          description: Channel description
+          example: "General discussion channel"
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when channel was created
+          example: "2024-01-01T00:00:00Z"
+
+    ChannelMessageCreate:
+      type: object
+      required:
+        - content
+        - user_id
+      properties:
+        content:
+          type: string
+          description: Message content/text
+          example: "Hello everyone!"
+        user_id:
+          type: string
+          description: Unique identifier for the user sending the message
+          example: "user-123"
+        metadata:
+          type: object
+          description: Optional metadata for the message
+          additionalProperties: true
+
+    ChannelMessage:
+      type: object
+      required:
+        - event_id
+        - channel_id
+        - user_id
+        - content
+        - ts
+      properties:
+        event_id:
+          type: string
+          description: Unique identifier for the event/message
+          example: "evt-550e8400-e29b-41d4-a716-446655440000"
+        channel_id:
+          type: string
+          description: Unique identifier for the channel
+          example: "general"
+        user_id:
+          type: string
+          description: Unique identifier for the user who sent the message
+          example: "user-123"
+        content:
+          type: string
+          description: Message content/text
+          example: "Hello everyone!"
+        ts:
+          type: integer
+          description: Unix timestamp (seconds) when the message was created
+          example: 1704067200
+        metadata:
+          type: object
+          description: Optional metadata for the message
+          additionalProperties: true
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Resource not found"
+        detail:
+          type: string
+          description: Detailed error information
+          example: "The requested conversation was not found"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Bad Request"
+            detail: "Invalid message content"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Unauthorized"
+            detail: "JWT token is missing or invalid"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Not Found"
+            detail: "The requested resource was not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal Server Error"
+            detail: "An unexpected error occurred"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token authentication. For WebSocket connections, the token is passed
+        as a query parameter during the $connect route. For REST endpoints,
+        use the Authorization header.
+
+security:
+  - BearerAuth: [ ]
+
+# WebSocket API Routes (API Gateway WebSocket API)
+# These are not standard OpenAPI endpoints but are documented here for reference
+x-websocket-routes:
+  $connect:
+    description: |
+      Handle new WebSocket connections. Validates JWT token from query parameters,
+      extracts userId and channelIds, and stores connection metadata in DynamoDB.
+    parameters:
+      - name: token
+        in: query
+        required: true
+        description: JWT token for authentication
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Connection established successfully
+      '401':
+        description: Authentication failed - invalid or missing token
+      '500':
+        description: Internal server error
+
+  $disconnect:
+    description: |
+      Handle WebSocket disconnections. Removes connection record from DynamoDB
+      when client disconnects.
+    responses:
+      '200':
+        description: Disconnection handled successfully
+      '500':
+        description: Internal server error
+
+  sendmessage:
+    description: |
+      Handle incoming messages from WebSocket clients. Validates message format,
+      persists to DynamoDB chat-events table, and triggers DynamoDB Streams for
+      downstream processing (AI agent and delivery workers).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - channel_id
+              - content
+            properties:
+              channel_id:
+                type: string
+                example: "general"
+              content:
+                type: string
+                example: "Hello everyone!"
+              user_id:
+                type: string
+                example: "user-123"
+    responses:
+      '200':
+        description: Message sent successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: "sent"
+                event_id:
+                  type: string
+                  example: "evt-550e8400-e29b-41d4-a716-446655440000"
+      '400':
+        description: Bad request - invalid message format
+      '401':
+        description: Unauthorized - invalid connection
+      '500':
+        description: Internal server error
