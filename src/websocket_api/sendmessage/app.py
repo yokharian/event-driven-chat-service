@@ -6,6 +6,8 @@ from typing import Any, Dict, List
 
 import boto3
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.parser import event_parser
+from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketMessageEvent
 from botocore.exceptions import ClientError
 
 # Add project root to path to import commons
@@ -29,18 +31,9 @@ repository = DynamoDBRepository(
     key_auto_assign=False,  # connectionId comes from API Gateway
 )
 
-logger = Logger()
 
-# Initialize repository
-repository = DynamoDBRepository(
-    table_name=settings.table_name,
-    table_hash_keys=["connectionId"],
-    dynamodb_endpoint_url=settings.dynamodb_endpoint_url,
-    key_auto_assign=False,  # connectionId comes from API Gateway
-)
-
-
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+@event_parser(model=APIGatewayWebSocketMessageEvent)
+def handler(event: APIGatewayWebSocketMessageEvent, context: Any) -> Dict[str, Any]:
     """
     Handle sending messages to all connected WebSocket clients.
     
@@ -64,8 +57,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     # Initialize API Gateway Management API client
-    request_context = event["requestContext"]
-    endpoint_url = f"https://{request_context['domainName']}/{request_context['stage']}"
+    request_context = event.request_context
+    endpoint_url = f"https://{request_context.domain_name}/{request_context.stage}"
     
     apigw_management_api = boto3.client(
         "apigatewaymanagementapi",
@@ -75,7 +68,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     # Parse message data from request body
     try:
-        body = json.loads(event.get("body", "{}"))
+        body = json.loads(event.body or "{}")
         post_data = body.get("data", "")
     except json.JSONDecodeError:
         return {

@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.parser import event_parser
+from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketDisconnectEvent
 
 # Add project root to path to import commons
 # In Lambda, the package root is the function directory, so we need to go up
@@ -26,18 +28,9 @@ repository = DynamoDBRepository(
     key_auto_assign=False,  # connectionId comes from API Gateway
 )
 
-logger = Logger()
 
-# Initialize repository
-repository = DynamoDBRepository(
-    table_name=settings.table_name,
-    table_hash_keys=["connectionId"],
-    dynamodb_endpoint_url=settings.dynamodb_endpoint_url,
-    key_auto_assign=False,  # connectionId comes from API Gateway
-)
-
-
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+@event_parser(model=APIGatewayWebSocketDisconnectEvent)
+def handler(event: APIGatewayWebSocketDisconnectEvent, context: Any) -> Dict[str, Any]:
     """
     Handle WebSocket disconnection event.
     
@@ -48,7 +41,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         Response dictionary with statusCode and body
     """
-    connection_id = event["requestContext"]["connectionId"]
+    connection_id = event.request_context.connection_id
     
     try:
         repository.delete(connectionId=connection_id)

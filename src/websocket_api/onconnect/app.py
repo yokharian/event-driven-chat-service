@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.parser import event_parser
+from aws_lambda_powertools.utilities.parser.models import APIGatewayWebSocketConnectEvent
 
 # Add project root to path to import commons
 # In Lambda, the package root is the function directory, so we need to go up
@@ -27,7 +29,8 @@ repository = DynamoDBRepository(
 )
 
 
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+@event_parser(model=APIGatewayWebSocketConnectEvent)
+def handler(event: APIGatewayWebSocketConnectEvent, context: Any) -> Dict[str, Any]:
     """
     Handle WebSocket connection event.
     
@@ -38,7 +41,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         Response dictionary with statusCode and body
     """
-    connection_id = event["requestContext"]["connectionId"]
+    connection_id = event.request_context.connection_id
     
     try:
         repository.create(item={"connectionId": connection_id})
