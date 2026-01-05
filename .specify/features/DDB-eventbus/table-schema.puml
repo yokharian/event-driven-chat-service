@@ -1,0 +1,55 @@
+@startyaml
+!theme sketchy-outline
+table: ChatMessages
+keys:
+  partition_key:
+    name: channel_id
+    type: S
+    description: Chat channel / room id
+  sort_key:
+    name: ts
+    type: 'N'
+    description: Unix timestamp (seconds or milliseconds). Sorted ascending.
+attributes:
+  event_id:
+    type: S
+    required: true
+    description: Idempotency key (ULID/UUID). Unique per message insert.
+  message_id:
+    type: S
+    required: true
+    description: 'Public identifier (can equal event_id, but not required).'
+  sender_id:
+    type: S
+    required: true
+    description: User id or system id that produced the message.
+  role:
+    type: S
+    required: true
+    allowed:
+      - user
+      - ai
+      - system
+    description: Message author type.
+  content:
+    type: S
+    required: true
+    description: Message body.
+  content_type:
+    type: S
+    required: true
+    allowed:
+      - text
+      - markdown
+    description: How to render/interpret content.
+  created_at_iso:
+    type: S
+    required: true
+    example: '2026-01-04T19:09:11Z'
+    description: ISO8601 timestamp for debugging/readability.
+  metadata:
+    type: M
+    required: false
+    description: 'Arbitrary metadata map (e.g., client info, tokens, model).'
+
+@endyaml
