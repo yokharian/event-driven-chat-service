@@ -123,6 +123,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
+          AWS_REGION: !Ref AWS::Region
       Policies:
       - DynamoDBCrudPolicy:
           TableName: !Ref TableName
@@ -144,6 +145,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
+          AWS_REGION: !Ref AWS::Region
       Policies:
       - DynamoDBCrudPolicy:
           TableName: !Ref TableName
@@ -165,6 +167,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
+          AWS_REGION: !Ref AWS::Region
       Policies:
       - DynamoDBCrudPolicy:
           TableName: !Ref TableName

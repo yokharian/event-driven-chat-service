@@ -1,25 +1,40 @@
-"""
-Copyright 2018-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-SPDX-License-Identifier: MIT-0
-
-Lambda function handler for WebSocket disconnection events.
-
-The $disconnect route is executed after the connection is closed.
-The connection can be closed by the server or by the client. As the connection is already closed when it is executed,
-$disconnect is a best-effort event.
-API Gateway will try its best to deliver the $disconnect event to your integration, but it cannot guarantee delivery.
-"""
-
 import json
 import os
+import sys
+from pathlib import Path
 from typing import Any, Dict
 
-import boto3
-from botocore.exceptions import ClientError
+from aws_lambda_powertools import Logger
 
-# Initialize DynamoDB client
-dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION"))
+# Add project root to path to import commons
+# In Lambda, the package root is the function directory, so we need to go up
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from commons.dal.dynamodb_repository import DynamoDBRepository
+from commons.dynamodb.exceptions import RepositoryError
+
+logger = Logger()
+
+# Initialize repository with settings from environment
 table_name = os.environ.get("TABLE_NAME")
+dynamodb_endpoint_url = os.environ.get("DYNAMODB_ENDPOINT_URL")  # Optional, for LocalStack
+repository = DynamoDBRepository(
+    table_name=table_name,
+    table_hash_keys=["connectionId"],
+    dynamodb_endpoint_url=dynamodb_endpoint_url,
+    key_auto_assign=False,  # connectionId comes from API Gateway
+)
+
+logger = Logger()
+
+# Initialize repository
+repository = DynamoDBRepository(
+    table_name=settings.table_name,
+    table_hash_keys=["connectionId"],
+    dynamodb_endpoint_url=settings.dynamodb_endpoint_url,
+    key_auto_assign=False,  # connectionId comes from API Gateway
+)
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -33,19 +48,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         Response dictionary with statusCode and body
     """
-    table = dynamodb.Table(table_name)
     connection_id = event["requestContext"]["connectionId"]
     
     try:
-        table.delete_item(
-            Key={
-                "connectionId": connection_id
-            }
-        )
-    except ClientError as err:
+        repository.delete(connectionId=connection_id)
+        logger.info(f"Connection disconnected: {connection_id}")
+    except RepositoryError as err:
+        logger.error(f"Failed to disconnect: {err}", exc_info=True)
         return {
             "statusCode": 500,
-            "body": f"Failed to disconnect: {json.dumps(str(err))}"
+            "body": json.dumps({"error": "Failed to disconnect"})
         }
     
     return {"statusCode": 200, "body": "Disconnected."}
