@@ -43,7 +43,7 @@ from commons.dal import PostgreSQLRepository
 
 # Inject PostgreSQL repository
 postgres_repo = PostgreSQLRepository(
-    table_name='engines',
+    table_name='messages',
     connection_string='postgresql://user:pass@localhost/db'
 )
 
@@ -72,7 +72,7 @@ class MyService(BaseService):
 from commons.dal import PostgreSQLRepository
 
 postgres_repo = PostgreSQLRepository(
-    table_name='engines',
+    table_name='messages',
     connection_string=settings.postgres_connection_string
 )
 ```
