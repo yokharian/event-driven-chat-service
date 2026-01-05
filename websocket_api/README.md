@@ -1,6 +1,7 @@
 # Simple WebSockets Chat App
 
-A WebSocket chat application using AWS API Gateway WebSocket API and Lambda functions, refactored to use the Data Access Layer (DAL) pattern.
+A WebSocket chat application using AWS API Gateway WebSocket API and Lambda functions, refactored to use the Data Access
+Layer (DAL) pattern.
 
 ## Architecture
 
@@ -80,7 +81,7 @@ export DYNAMODB_ENDPOINT_URL=http://localhost:4566
 ## Project Structure
 
 ```
-simple-websockets-chat-app-1.0.4/
+websocket_api/
 ├── onconnect/
 │   ├── app.py              # Connection handler using DAL
 │   ├── pyproject.toml      # Dependencies
@@ -109,5 +110,4 @@ simple-websockets-chat-app-1.0.4/
 
 ## References
 
-- See `engine_management/` for examples of DAL usage
 - See `commons/dal/` for repository interface and implementations
