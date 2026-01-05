@@ -88,7 +88,7 @@ via DynamoDB Streams for AI processing and real-time delivery.
 
 - `$connect` - Handle new WebSocket connections
 - `$disconnect` - Handle WebSocket disconnections
-- `sendmessage` - Handle incoming messages from clients
+- `sendmessage` - Handle incoming messages from clients (Not Implemented)
 
 ### REST API Endpoints
 
@@ -117,7 +117,7 @@ The backend integrates with the DynamoDB event bus:
 
 ## 📚 References
 
-- [DynamoDB Event Bus PRD](./DDB-eventbus/prd.md)
-- [Technical Decision: Why API Gateway](../technical-decisions/why-apigateway.md)
-- [Technical Decision: Why DynamoDB](../technical-decisions/why-dynamodb.md)
+- [DynamoDB Event Bus PRD](../DDB-eventbus/prd.md)
+- [Technical Decision: Why API Gateway](../../technical-decisions/why-apigateway.md)
+- [Technical Decision: Why DynamoDB](../../technical-decisions/why-dynamodb.md)
 

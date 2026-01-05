@@ -18,8 +18,10 @@ AWS API Gateway WebSocket API.
 ## 👤 User Stories
 
 - As a **user**, I want to send messages via REST API and receive messages (and AI replies) in real-time via WebSocket.
-- As a **tester**, I want to open multiple browser tabs and verify that messages sent from one tab are broadcast to all active WebSocket connections.
-- As a **developer**, I want to test the connection management, REST API message sending, and WebSocket broadcast delivery flows.
+- As a **tester**, I want to open multiple browser tabs and verify that messages sent from one tab are broadcast to all
+  active WebSocket connections.
+- As a **developer**, I want to test the connection management, REST API message sending, and WebSocket broadcast
+  delivery flows.
 
 ## 🧱 Technical Requirements
 
@@ -47,14 +49,16 @@ AWS API Gateway WebSocket API.
 
 1. User enters WebSocket endpoint URL and clicks "Connect".
 2. Frontend establishes WebSocket connection → API Gateway triggers `$connect` route.
-3. User sends message → Frontend sends message via **REST API** (`POST /messages` or `POST /conversations/{id}/messages`) → Backend processes message.
+3. User sends message → Frontend sends message via **REST API** (`POST /messages` or
+   `POST /conversations/{id}/messages`) → Backend processes message.
 4. Backend publishes message to SNS → Delivery worker broadcasts to all WebSocket connections.
 5. Frontend receives broadcast message via WebSocket and displays it in the chat history.
 6. User disconnects → API Gateway triggers `$disconnect` route.
 
-**Important**: Messages are sent via **REST API ONLY**. WebSocket is used exclusively for receiving real-time message broadcasts. The WebSocket `sendmessage` route is not used for sending messages.
+**Important**: Messages are sent via **REST API ONLY**. WebSocket is used exclusively for receiving real-time message
+broadcasts. The WebSocket `sendmessage` route is not used for sending messages.
 
 ## 📚 References
 
-- [Backend PRD](./backend/prd.md)
-- [WebSocket API Implementation](../../src/websocket_api/README.md)
+- [Backend PRD](../backend/prd.md)
+- [WebSocket API Implementation](../../../src/websocket_api/README.md)

@@ -72,10 +72,12 @@ the source of truth for chat messages and enables event-driven processing for AI
 **Table Name**: `chat-events`
 
 **Key Schema**:
+
 - **Partition Key**: `channel_id` (String) - Chat channel/room identifier
 - **Sort Key**: `ts` (Number) - Unix timestamp for chronological ordering
 
 **Message Attributes**:
+
 - `event_id` (String) - Idempotency key (ULID/UUID) for exactly-once processing
 - `message_id` (String) - Public identifier
 - `sender_id` (String) - User ID or system ID
@@ -109,6 +111,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 ### Data Access Patterns
 
 **Write Path**:
+
 1. Backend API receives message via REST/WebSocket
 2. Generate `event_id` (ULID/UUID) for idempotency
 3. Write to DynamoDB with conditional write (check `event_id` doesn't exist)
@@ -116,11 +119,13 @@ the source of truth for chat messages and enables event-driven processing for AI
 5. Lambda consumers triggered asynchronously
 
 **Read Path**:
+
 1. Query by `channel_id` (partition key) to get all messages for a conversation
 2. Use `ts` (sort key) for chronological ordering
 3. Implement cursor-based pagination using `ts` as cursor
 
 **Event Processing Path**:
+
 1. DynamoDB Stream captures table change
 2. Lambda function invoked with batch of stream records
 3. Process each record (filter, transform, act)
@@ -129,7 +134,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 
 ## 📚 References
 
-- [Technical Decision: Why DynamoDB](../technical-decisions/why-dynamodb.md)
-- [Technical Decision: Why Not SNS+SQS](../technical-decisions/why-not-sns-sqs.md)
+- [Technical Decision: Why DynamoDB](./../../technical-decisions/why-dynamodb.md)
+- [Technical Decision: Why Not SNS+SQS](../../technical-decisions/why-not-sns-sqs.md)
 - [Table Schema Diagram](./table-schema.puml)
 - [Architecture Diagram](./diagram.puml)
