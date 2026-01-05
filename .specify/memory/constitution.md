@@ -2,120 +2,44 @@
 
 > I am the Law (Tech Stack & Rules). **Never ignore me.**
 
----
-
 ## 🏗️ Tech Stack
 
-> ⚠️ **IMPORTANT**: The following tech stack is just an example. **You must delete these examples and replace them with your actual tech stack before continuing.**
-
-### Frontend
-- **Framework**: React 18+ with TypeScript
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand or React Query
-- **Build Tool**: Vite
-
-### Backend
-- **Runtime**: Node.js 20+ LTS
-- **Framework**: Express.js or Fastify
-- **Database**: PostgreSQL with Prisma ORM
-- **Cache**: Redis
-
-### Infrastructure
-- **Cloud**: AWS
-- **Container**: Docker
-- **CI/CD**: GitHub Actions
-- **Monitoring**: DataDog or CloudWatch
-
----
+- **Backend**: AWS Lambda + API Gateway (REST + WebSocket)
+- **REST API**: `APIGatewayRestResolver` (not FastAPI)
+- **Database**: DynamoDB with Streams
+- **Data Access**: DAL pattern with `IRepository` interface
+- **Observability**: AWS Lambda Powertools
+- **Frontend**: Streamlit
+- **Local Development**: Docker Compose + LocalStack + SAM CLI
 
 ## 📏 Coding Standards
 
-> ⚠️ **IMPORTANT**: The following coding standards are just examples. **You must delete these examples and replace them with your actual coding standards before continuing.**
-
-### General Rules
-
-1. **TypeScript Everywhere** — No plain JavaScript in production code
-2. **Strict Mode** — `"strict": true` in all tsconfig files
-3. **ESLint + Prettier** — Code must pass linting before commit
-4. **No `any`** — Use proper types or `unknown` if truly dynamic
-
-### Naming Conventions
-
-| Type | Convention | Example |
-|------|------------|---------|
-| Files (Components) | PascalCase | `UserProfile.tsx` |
-| Files (Utils) | camelCase | `formatDate.ts` |
-| Variables | camelCase | `userName` |
-| Constants | SCREAMING_SNAKE | `MAX_RETRY_COUNT` |
-| Types/Interfaces | PascalCase | `UserProfile` |
-| CSS Classes | kebab-case | `user-profile-card` |
-
-### File Structure
-
-```
-src/
-├── components/     # React components
-├── hooks/          # Custom React hooks
-├── utils/          # Pure utility functions
-├── services/       # API calls and external services
-├── types/          # TypeScript type definitions
-├── constants/      # Application constants
-└── __tests__/      # Test files
-```
-
----
-
-## 🚫 Forbidden Patterns
-
-1. **No `console.log` in production** — Use proper logging library
-2. **No hardcoded secrets** — Use environment variables
-3. **No `// @ts-ignore`** — Fix the type issue properly
-4. **No inline styles** — Use Tailwind or CSS modules
-5. **No `var`** — Use `const` or `let`
-6. **No nested callbacks** — Use async/await
-7. **No magic numbers** — Use named constants
-
----
+1. **Type Hints** — Use Python typing and Pydantic for validation
+2. **Configuration** — Use `pydantic-settings` (not `os.getenv`)
+3. **Lambda Handlers** — **Synchronous only** (required by `APIGatewayRestResolver`)
+4. **Pydantic v2** — For all request/response models and event payloads
+5. **TDD** — Test Driven Development
+6. **Task Automation** — Use `poethepoet` in `pyproject.toml`
 
 ## ✅ Required Patterns
 
-1. **Error Boundaries** — Wrap components that can fail
-2. **Loading States** — Always show loading indicators
-3. **Error States** — Always handle and display errors gracefully
-4. **Input Validation** — Validate all user inputs
-5. **Accessibility** — Use semantic HTML and ARIA labels
-6. **Responsive Design** — Mobile-first approach
+1. **Service Layer** — Business logic in `BaseService` classes
+2. **DAL Pattern** — All database operations via `IRepository` interface
+3. **Dependency Injection** — Services accept repositories via constructor
+4. **Powertools Decorators** — `@logger.inject_lambda_context`, `@metrics.log_metrics`, `@tracer.capture_lambda_handler`
+5. **Request/Response Validation** — Pydantic models with `BaseSchema` (camelCase aliases)
 
----
+## 🚫 Forbidden Patterns
 
-## 🔒 Security Rules
+1. **No Async Lambda Handlers** — Must be synchronous
+2. **No Direct Database Access** — Always use repository pattern (no boto3 in services)
+3. **No FastAPI** — Use `APIGatewayRestResolver` only
+4. **No Hardcoded Credentials** — Use environment variables
+5. **No Secrets in Repo** — Use environment variables for API keys
 
-1. **Sanitize all inputs** — Prevent XSS and SQL injection
-2. **Use parameterized queries** — Never concatenate SQL strings
-3. **HTTPS only** — No HTTP in production
-4. **JWT expiration** — Tokens expire in 24 hours max
-5. **Rate limiting** — Implement on all public APIs
-6. **CORS configuration** — Whitelist allowed origins only
+## 🔒 Security
 
----
-
-## 📝 Documentation Requirements
-
-1. **JSDoc for public functions** — Describe params and return types
-2. **README per major feature** — Explain purpose and usage
-3. **API documentation** — OpenAPI/Swagger spec for all endpoints
-4. **Changelog** — Keep CHANGELOG.md updated
-
----
-
-## 🧪 Testing Requirements
-
-| Type | Coverage Target | Tool |
-|------|-----------------|------|
-| Unit Tests | 80% | Jest |
-| Integration Tests | Critical paths | Supertest |
-| E2E Tests | Happy paths | Playwright |
-
----
+- **LocalStack**: `AWS_ACCESS_KEY_ID=test`, `AWS_SECRET_ACCESS_KEY=test`
+- **API Keys**: Use environment variables (e.g., `OPENAI_API_KEY`)
 
 *This constitution is non-negotiable. All code must comply.*
