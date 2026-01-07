@@ -45,9 +45,7 @@ class TableManager:
         }
         if secondary_indexes:
             keys = {
-                field
-                for idx_name, idx_fields in secondary_indexes or []
-                for field in idx_fields
+                field for idx_name, idx_fields in secondary_indexes or [] for field in idx_fields
             }
             creation_params["AttributeDefinitions"].extend(
                 [{"AttributeName": key, "AttributeType": "S"} for key in keys]

@@ -14,12 +14,8 @@ class QueryBuilder:
     order_by: list[str] = dataclasses.field(default_factory=list)
     join: list[tuple[str, str, str]] = dataclasses.field(default_factory=list)
     where_conditions: list[str] = dataclasses.field(default_factory=list)
-    search_aliases: typing.Optional[dict[str, str]] = dataclasses.field(
-        default_factory=dict
-    )
-    search_operators: typing.Optional[dict[str, str]] = dataclasses.field(
-        default_factory=dict
-    )
+    search_aliases: typing.Optional[dict[str, str]] = dataclasses.field(default_factory=dict)
+    search_operators: typing.Optional[dict[str, str]] = dataclasses.field(default_factory=dict)
     initial_sql: str = dataclasses.field(init=False)
     initial_count_sql: str = dataclasses.field(init=False)
 

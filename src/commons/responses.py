@@ -36,9 +36,7 @@ def error_response(
     status: int = 400,
 ) -> Dict[str, Any]:
     error_object = {"code": code, "message": message, "details": details}
-    error_object = {
-        k: v for k, v in error_object.items() if v is not None
-    }  # Remove None values
+    error_object = {k: v for k, v in error_object.items() if v is not None}  # Remove None values
     return {"status": status, "error": error_object}
 
 

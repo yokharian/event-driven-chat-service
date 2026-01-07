@@ -31,9 +31,7 @@ class IRepository(ABC):
         pass
 
     @abstractmethod
-    def get_by_key(
-        self, *, raise_not_found: bool = True, **keys
-    ) -> Optional[Dict[str, Any]]:
+    def get_by_key(self, *, raise_not_found: bool = True, **keys) -> Optional[Dict[str, Any]]:
         """
         Get an item by its primary key(s).
 
