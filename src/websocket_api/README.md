@@ -92,7 +92,6 @@ websocket_api/
 │   ├── app.py              # Message broadcast handler using DAL
 │   └── pyproject.toml      # Dependencies
 ├── settings.py             # Shared settings module
-├── template.yaml           # SAM template
 └── README.md              # This file
 ```
 

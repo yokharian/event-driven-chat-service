@@ -36,11 +36,11 @@ repository = DynamoDBRepository(
 def handler(event: APIGatewayWebSocketMessageEventModel, context: Any) -> Dict[str, Any]:
     """
     Handle sending messages to all connected WebSocket clients.
-    
+
     Args:
         event: Lambda event containing request context and body with message data
         context: Lambda context object
-        
+
     Returns:
         Response dictionary with statusCode and body
     """
@@ -51,39 +51,28 @@ def handler(event: APIGatewayWebSocketMessageEventModel, context: Any) -> Dict[s
         logger.info(f"Found {len(connection_ids)} active connections")
     except RepositoryError as err:
         logger.error(f"Failed to retrieve connections: {err}", exc_info=True)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Failed to retrieve connections"})
-        }
-    
+        return {"statusCode": 500, "body": json.dumps({"error": "Failed to retrieve connections"})}
+
     # Initialize API Gateway Management API client
     request_context = event.request_context
     endpoint_url = f"https://{request_context.domain_name}/{request_context.stage}"
-    
+
     apigw_management_api = boto3.client(
-        "apigatewaymanagementapi",
-        endpoint_url=endpoint_url,
-        region_name=aws_region
+        "apigatewaymanagementapi", endpoint_url=endpoint_url, region_name=aws_region
     )
-    
+
     # Parse message data from request body
     try:
         body = json.loads(event.body or "{}")
         post_data = body.get("data", "")
     except json.JSONDecodeError:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "Invalid JSON in request body"})
-        }
-    
+        return {"statusCode": 400, "body": json.dumps({"error": "Invalid JSON in request body"})}
+
     # Send message to all connections
     failed_connections = []
     for connection_id in connection_ids:
         try:
-            apigw_management_api.post_to_connection(
-                ConnectionId=connection_id,
-                Data=post_data
-            )
+            apigw_management_api.post_to_connection(ConnectionId=connection_id, Data=post_data)
         except ClientError as e:
             # Handle stale connections (410 Gone)
             error_code = e.response.get("Error", {}).get("Code")
@@ -94,16 +83,15 @@ def handler(event: APIGatewayWebSocketMessageEventModel, context: Any) -> Dict[s
                 except RepositoryError as delete_err:
                     logger.error(
                         f"Failed to delete stale connection {connection_id}: {delete_err}",
-                        exc_info=True
+                        exc_info=True,
                     )
             else:
                 logger.error(
-                    f"Failed to send message to connection {connection_id}: {e}",
-                    exc_info=True
+                    f"Failed to send message to connection {connection_id}: {e}", exc_info=True
                 )
                 failed_connections.append(connection_id)
-    
+
     if failed_connections:
         logger.warning(f"Failed to send to {len(failed_connections)} connections")
-    
+
     return {"statusCode": 200, "body": "Data sent."}
