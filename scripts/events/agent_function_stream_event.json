@@ -1,0 +1,32 @@
+{
+  "Records": [
+    {
+      "eventID": "1",
+      "eventName": "INSERT",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "us-east-1",
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1736200000,
+        "Keys": {
+          "channel_id": { "S": "general" },
+          "ts": { "N": "1736200000" }
+        },
+        "NewImage": {
+          "channel_id": { "S": "general" },
+          "ts": { "N": "1736200000" },
+          "message_id": { "S": "msg-123" },
+          "conversation_id": { "S": "conv-123" },
+          "content": { "S": "Hello from user" },
+          "role": { "S": "user" },
+          "sender_id": { "S": "alice" }
+        },
+        "SequenceNumber": "1",
+        "SizeBytes": 123,
+        "StreamViewType": "NEW_AND_OLD_IMAGES"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:us-east-1:000000000000:table/chat_events/stream/2025-01-01T00:00:00.000"
+    }
+  ]
+}
+

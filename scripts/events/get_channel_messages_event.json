@@ -1,0 +1,22 @@
+{
+  "resource": "/channels/{channel_id}/messages",
+  "path": "/channels/general/messages",
+  "httpMethod": "GET",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": {
+    "limit": "20"
+  },
+  "pathParameters": {
+    "channel_id": "general"
+  },
+  "requestContext": {
+    "resourcePath": "/channels/{channel_id}/messages",
+    "httpMethod": "GET"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}
+

@@ -1,0 +1,22 @@
+{
+  "resource": "/conversations/{conversation_id}/messages",
+  "path": "/conversations/conv-123/messages",
+  "httpMethod": "GET",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": {
+    "limit": "20"
+  },
+  "pathParameters": {
+    "conversation_id": "conv-123"
+  },
+  "requestContext": {
+    "resourcePath": "/conversations/{conversation_id}/messages",
+    "httpMethod": "GET"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}
+

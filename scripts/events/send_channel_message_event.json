@@ -1,0 +1,20 @@
+{
+  "resource": "/channels/{channel_id}/messages",
+  "path": "/channels/general/messages",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": null,
+  "pathParameters": {
+    "channel_id": "general"
+  },
+  "requestContext": {
+    "resourcePath": "/channels/{channel_id}/messages",
+    "httpMethod": "POST"
+  },
+  "body": "{ \"channelId\": \"general\", \"content\": \"Hello channel\", \"role\": \"user\", \"senderId\": \"alice\" }",
+  "isBase64Encoded": false
+}
+

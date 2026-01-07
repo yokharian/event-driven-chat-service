@@ -8,8 +8,11 @@ dependencies = [
     "pydantic>=2.0.0",
     "boto3>=1.35.0",
     "websockets>=13.0",
+    "sqlalchemy>=2.0.0",
+    "streamlit>=1.39.0",
     "python-dotenv>=1.0.0",
     "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.24.0",
     "httpx>=0.27.0",
     "openai>=1.0.0",
@@ -17,15 +20,17 @@ dependencies = [
     "poethepoet>=0.29.0",
     "pydantic-settings>=2.0.0",
     "boto3-stubs~=1.42.20",
+    "aws-lambda-powertools>=3.23.0",
+    "fastapi>=0.128.0",
+    "uvicorn>=0.40.0",
+    "psycopg2-binary>=2.9.11",
+    "moto>=5.1.19",
+    "aws-sam-cli>=1.151.0",
 ]
 
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.poe.tasks]
-format = "black src tests scripts"
-format-check = "black --check src tests scripts"
 
 [dependency-groups]
 dev = [
@@ -54,3 +59,269 @@ extend-exclude = '''
   | __pycache__
 )/
 '''
+
+[tool.poe.tasks]
+# Help and Documentation
+help = { shell = '''echo "Available commands:
+  poe docker:start-local     - Start local development environment
+  poe docker:stop-local      - Stop local development environment
+  poe docker:logs-local      - View LocalStack logs
+  poe aws:deploy-local       - Deploy to LocalStack (Community Edition)
+  poe aws:deploy-prod        - Deploy to production (AWS/LocalStack Pro)
+  poe aws:list-lambdas       - List Lambda functions
+  poe aws:invoke-create-conversation   - sam local invoke CreateConversation
+  poe aws:invoke-get-conversation      - sam local invoke GetConversation
+  poe aws:invoke-send-message          - sam local invoke SendMessage
+  poe aws:invoke-get-messages          - sam local invoke GetMessages
+  poe aws:invoke-get-channels          - sam local invoke GetChannels
+  poe aws:invoke-send-channel-message  - sam local invoke SendChannelMessage
+  poe aws:invoke-get-channel-messages  - sam local invoke GetChannelMessages
+  poe aws:invoke-agent-worker          - sam local invoke AgentFunction (stream)
+  poe aws:invoke-delivery-worker       - sam local invoke DeliveryFunction (stream)
+  poe aws:describe-lambda    - Describe a Lambda
+  poe aws:tail-lambda-logs   - Tail Lambda logs
+  poe aws:list-dynamo        - List DynamoDB tables
+  poe aws:describe-dynamo    - Describe a DynamoDB table
+  poe aws:list-rest-apis     - List API Gateway REST APIs
+  poe aws:describe-rest-api  - Describe API Gateway resources
+  poe aws:list-log-groups    - List log groups
+  poe aws:list-roles         - List IAM roles
+  poe aws:describe-role      - Describe an IAM role
+  poe test                   - Run tests
+  poe clean                  - Clean build artifacts
+  poe validate               - Validate CloudFormation templates
+  poe format                 - Format code with black
+  poe format-check           - Check code formatting"''' }
+
+
+#
+# DOCKER COMMANDS
+#
+
+[tool.poe.tasks.docker]
+shell = """
+set -euo pipefail
+action=${1:-${POE_TASK_ARGS:-help}}
+case "$action" in
+  start|start-local)
+    poe docker:start-local
+    ;;
+  stop|stop-local)
+    poe docker:stop-local
+    ;;
+  logs|logs-local)
+    poe docker:logs-local
+    ;;
+  *)
+    cat <<'USAGE'
+Docker tasks (use any of: start-local|stop-local|logs-local)
+  poe docker:start-local  # docker-compose up -d
+  poe docker:stop-local   # docker-compose down
+  poe docker:logs-local   # logs -f localstack
+USAGE
+    ;;
+esac
+"""
+help = "Run docker subcommands: poe docker [start|stop|logs]"
+
+[tool.poe.tasks."docker:start-local"]
+shell = "docker-compose up -d"
+help = "Start local development environment"
+
+[tool.poe.tasks."docker:stop-local"]
+shell = "docker-compose down"
+help = "Stop local development environment"
+
+[tool.poe.tasks."docker:logs-local"]
+shell = "docker-compose logs -f localstack"
+help = "View LocalStack logs"
+
+#
+# AWS SAM DEPLOY COMMANDS
+#
+
+[tool.poe.tasks.aws]
+shell = '''
+echo "AWS tasks:
+  poe aws:deploy-local       (sam build+deploy LocalStack)
+  poe aws:deploy-prod        (sam build+deploy prod)
+  poe aws:invoke-create-conversation
+  poe aws:invoke-get-conversation
+  poe aws:invoke-send-message
+  poe aws:invoke-get-messages
+  poe aws:invoke-get-channels
+  poe aws:invoke-send-channel-message
+  poe aws:invoke-get-channel-messages
+  poe aws:invoke-agent-worker
+  poe aws:invoke-delivery-worker
+  poe aws:list-lambdas
+  poe aws:describe-lambda LAMBDA_NAME=...
+  poe aws:tail-lambda-logs LAMBDA_NAME=... [SINCE=10m]
+  poe aws:list-dynamo
+  poe aws:describe-dynamo TABLE_NAME=...
+  poe aws:list-rest-apis
+  poe aws:describe-rest-api REST_API_ID=...
+  poe aws:list-log-groups
+  poe aws:list-roles
+  poe aws:describe-role ROLE_NAME=...
+"'''
+help = "Show AWS subcommands"
+
+[tool.poe.tasks."aws:deploy-local"]
+shell = """
+echo 'Deploying to LocalStack using SAM (Dockerfile source-of-truth)...'
+set -euo pipefail
+sam build --template-file src/infra/template-dev.yaml
+STACK_NAME=${STACK_NAME:-chat-service-stack} \
+ENVIRONMENT=${ENVIRONMENT:-local} \
+STATE_TABLE_NAME=${STATE_TABLE_NAME:-simplechat_connections} \
+EVENT_BUS_TABLE_NAME=${EVENT_BUS_TABLE_NAME:-chat_events} \
+AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1} \
+TEMPLATE_FILE=${TEMPLATE_FILE:-.aws-sam/build/template.yaml} \
+src/infra/sam_deploy.sh
+"""
+help = "Deploy to LocalStack (Community Edition) using the SAM deploy script"
+
+[tool.poe.tasks."aws:deploy-prod"]
+shell = """
+echo 'Deploying to Production...'
+echo 'Step 1: Deploying main infrastructure...'
+sam build --template-file src/infra/template-dev.yaml
+STACK_NAME=${STACK_NAME:-chat-service-prod} \
+ENVIRONMENT=${ENVIRONMENT:-prod} \
+PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES:-"Environment=prod"} \
+TEMPLATE_FILE=${TEMPLATE_FILE:-.aws-sam/build/template.yaml} \
+src/infra/sam_deploy.sh
+echo 'Step 2: Deploying WebSocket API (requires LocalStack Pro or AWS)...'
+sam build --template-file src/infra/template-prod.yaml
+STACK_NAME=${STACK_NAME:-chat-service-websocket-prod} \
+ENVIRONMENT=${ENVIRONMENT:-prod} \
+PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES_WEBSOCKET:-"Environment=prod"} \
+TEMPLATE_FILE=${TEMPLATE_FILE:-.aws-sam/build/template.yaml} \
+src/infra/sam_deploy.sh
+"""
+help = "Deploy to production (AWS/LocalStack Pro)"
+
+#
+# AWS LOCALSTACK COMMANDS
+#
+
+[tool.poe.tasks."aws:list-lambdas"]
+cmd = "aws lambda list-functions"
+help = "List Lambda functions in LocalStack"
+env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:invoke-create-conversation"]
+cmd = "sam local invoke CreateConversationFunction -t src/infra/template-dev.yaml -e scripts/events/create_conversation_event.json"
+help = "Invoke CreateConversationFunction locally with mock event"
+
+[tool.poe.tasks."aws:invoke-get-conversation"]
+cmd = "sam local invoke GetConversationFunction -t src/infra/template-dev.yaml -e scripts/events/get_conversation_event.json"
+help = "Invoke GetConversationFunction locally with mock event"
+
+[tool.poe.tasks."aws:invoke-send-message"]
+cmd = "sam local invoke SendMessageFunction -t src/infra/template-dev.yaml -e scripts/events/send_message_event.json"
+help = "Invoke SendMessageFunction locally with mock event"
+
+[tool.poe.tasks."aws:invoke-get-messages"]
+cmd = "sam local invoke GetMessagesFunction -t src/infra/template-dev.yaml -e scripts/events/get_messages_event.json"
+help = "Invoke GetMessagesFunction locally with mock event"
+
+[tool.poe.tasks."aws:invoke-get-channels"]
+cmd = "sam local invoke GetChannelsFunction -t src/infra/template-dev.yaml -e scripts/events/get_channels_event.json"
+help = "Invoke GetChannelsFunction locally with mock event"
+
+[tool.poe.tasks."aws:invoke-send-channel-message"]
+cmd = "sam local invoke SendChannelMessageFunction -t src/infra/template-dev.yaml -e scripts/events/send_channel_message_event.json"
+help = "Invoke SendChannelMessageFunction locally with mock event"
+
+[tool.poe.tasks."aws:invoke-get-channel-messages"]
+cmd = "sam local invoke GetChannelMessagesFunction -t src/infra/template-dev.yaml -e scripts/events/get_channel_messages_event.json"
+help = "Invoke GetChannelMessagesFunction locally with mock event"
+
+[tool.poe.tasks."aws:invoke-agent-worker"]
+cmd = "sam local invoke AgentFunction -t src/infra/template-dev.yaml -e scripts/events/agent_function_stream_event.json"
+help = "Invoke AgentFunction locally with mock DynamoDB stream event"
+
+[tool.poe.tasks."aws:invoke-delivery-worker"]
+cmd = "sam local invoke DeliveryFunction -t src/infra/template-dev.yaml -e scripts/events/delivery_function_stream_event.json"
+help = "Invoke DeliveryFunction locally with mock DynamoDB stream event"
+
+[tool.poe.tasks."aws:describe-lambda"]
+shell = "aws lambda get-function --function-name ${LAMBDA_NAME:?set LAMBDA_NAME} --endpoint-url ${AWS_ENDPOINT_URL}"
+help = "Describe a Lambda (code + config); set LAMBDA_NAME"
+env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:tail-lambda-logs"]
+shell = "aws logs tail /aws/lambda/${LAMBDA_NAME:?set LAMBDA_NAME} --since ${SINCE:-5m} --follow --endpoint-url ${AWS_ENDPOINT_URL}"
+help = "Tail Lambda log group; set LAMBDA_NAME, optional SINCE=10m"
+env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:list-dynamo"]
+cmd = "aws dynamodb list-tables --endpoint-url http://localhost:4566"
+help = "List DynamoDB tables in LocalStack"
+env = { AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:describe-dynamo"]
+shell = "aws dynamodb describe-table --table-name ${TABLE_NAME:?set TABLE_NAME} --endpoint-url ${AWS_ENDPOINT_URL}"
+help = "Describe a DynamoDB table; set TABLE_NAME"
+env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:list-rest-apis"]
+cmd = "aws apigateway get-rest-apis --endpoint-url http://localhost:4566"
+help = "List API Gateway REST APIs"
+env = { AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:describe-rest-api"]
+shell = "aws apigateway get-resources --rest-api-id ${REST_API_ID:?set REST_API_ID} --endpoint-url ${AWS_ENDPOINT_URL}"
+help = "List resources of a REST API; set REST_API_ID"
+env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:list-log-groups"]
+cmd = "aws logs describe-log-groups --log-group-name-prefix /aws/"
+help = "List log groups (Lambda/API)"
+env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:list-roles"]
+cmd = "aws iam list-roles --endpoint-url http://localhost:4566"
+help = "List IAM roles (LocalStack)"
+env = { AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+[tool.poe.tasks."aws:describe-role"]
+shell = "aws iam get-role --role-name ${ROLE_NAME:?set ROLE_NAME} --endpoint-url ${AWS_ENDPOINT_URL}"
+help = "Describe an IAM role; set ROLE_NAME"
+env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
+
+#
+# GENERAL COMMANDS
+#
+
+[tool.poe.tasks.test]
+cmd = "pytest tests/ -v --cov=src"
+help = "Run tests with coverage"
+
+[tool.poe.tasks.clean]
+shell = """
+echo 'Cleaning build artifacts...'
+rm -rf .aws-sam
+rm -rf .build
+find . -type d -name '__pycache__' -exec rm -r {} + 2>/dev/null || true
+find . -type f -name '*.pyc' -delete
+"""
+help = "Clean build artifacts"
+
+[tool.poe.tasks.validate]
+shell = """
+echo 'Validating CloudFormation templates...'
+sam validate --template-file src/infra/template-dev.yaml --lint
+sam validate --template-file src/infra/template-prod.yaml --lint
+"""
+help = "Validate CloudFormation templates"
+
+[tool.poe.tasks.format]
+cmd = "black src tests scripts"
+help = "Format code with black"
+
+[tool.poe.tasks.format-check]
+cmd = "black --check src tests scripts"
+help = "Check code formatting"

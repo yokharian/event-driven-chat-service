@@ -1,0 +1,32 @@
+{
+  "Records": [
+    {
+      "eventID": "2",
+      "eventName": "INSERT",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "us-east-1",
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1736200001,
+        "Keys": {
+          "channel_id": { "S": "general" },
+          "ts": { "N": "1736200001" }
+        },
+        "NewImage": {
+          "channel_id": { "S": "general" },
+          "ts": { "N": "1736200001" },
+          "message_id": { "S": "msg-124" },
+          "conversation_id": { "S": "conv-123" },
+          "content": { "S": "Agent response" },
+          "role": { "S": "ai" },
+          "sender_id": { "S": "agent-bot" }
+        },
+        "SequenceNumber": "2",
+        "SizeBytes": 128,
+        "StreamViewType": "NEW_AND_OLD_IMAGES"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:us-east-1:000000000000:table/chat_events/stream/2025-01-01T00:00:00.000"
+    }
+  ]
+}
+
