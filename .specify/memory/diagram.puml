@@ -1,0 +1,77 @@
+@startuml
+!theme sketchy-outline
+skinparam componentStyle rectangle
+skinparam wrapWidth 220
+skinparam maxMessageSize 150
+skinparam shadowing false
+
+skinparam cloud {
+  BorderColor $DARK
+  FontColor $PRIMARY_TEXT
+}
+
+actor Users
+
+package "Client Layer" {
+  component "Frontend\n(AWS Amplify)" as Frontend
+}
+
+package "API Layer" {
+  component "REST + WebSocket Backend" as Backend
+}
+
+package "Event & Storage Layer" {
+  database "DynamoDB\nMessages\n(Idempotency + Status Sync)\nACID Transactions" as DDB
+}
+
+package "Consumer Layer" {
+  component "Lambda\nChatbot Consumer" as BotLambda
+  component "Lambda\nChatApp Consumer" as AppLambda
+}
+
+cloud "OpenAI" as OpenAI
+
+' ---- User interaction ----
+Users --> Frontend : Chat UI
+Frontend --> Backend : REST\nPublish Message
+Backend --> DDB : Persist Messages
+
+' ---- Event-driven processing (DynamoDB Streams) ----
+DDB --> BotLambda : Stream User\nmessages
+DDB --> AppLambda : Stream Message\nEvents
+
+' ---- Chatbot flow ----
+BotLambda --> DDB : Write Messages\n(role=AI)
+BotLambda --> OpenAI : Generate Response
+OpenAI --> BotLambda : Completion
+
+' ---- Delivery flow ----
+AppLambda --> Backend : REST API Call\nBroadcast Message
+Backend --> Frontend : WebSocket Push\n(at-least-once)
+
+' ---- Read path ----
+Backend --> DDB : Read Messages\n(history cursor pagination)
+
+note right of DDB
+DynamoDB responsibilities:
+- Source of truth
+- Event bus via Streams
+- Strongly consistent reads
+- Exactly-once *effect*
+  via transactions
+end note
+
+note bottom of BotLambda
+Delivery semantics:
+- At-least-once execution
+- Retries handled by Lambda
+- Idempotency required
+end note
+
+note bottom of Frontend
+Client responsibilities:
+- Deduplication
+- Cursor-based pagination
+- Local message cache
+end note
+@enduml
