@@ -19,6 +19,20 @@ sam build --template-file "${SOURCE_TEMPLATE_FILE}"
 [[ -f "${TEMPLATE_FILE}" ]] || { echo "Template file not found: ${TEMPLATE_FILE}" >&2; exit 1; }
 [[ -n "${DEPLOYMENT_BUCKET:-}" ]] || { echo "DEPLOYMENT_BUCKET is required" >&2; exit 1; }
 
+
+echo "Ensuring S3 bucket ${DEPLOYMENT_BUCKET} exists"
+if aws s3api head-bucket --bucket "${DEPLOYMENT_BUCKET}" 2>/dev/null;
+  then echo "Bucket ${DEPLOYMENT_BUCKET} already exists";
+
+else echo "Creating bucket ${DEPLOYMENT_BUCKET}";
+  if aws s3api create-bucket --bucket "${DEPLOYMENT_BUCKET}" 2>/dev/null;
+    then echo "Bucket ${DEPLOYMENT_BUCKET} successfully created";
+
+    else echo "ERROR creating ${DEPLOYMENT_BUCKET}";
+  fi;
+fi;
+
+
 echo "Packaging template to ${PACKAGED_TEMPLATE_FILE}"
 sam package \
   --template-file "${TEMPLATE_FILE}" \

@@ -56,19 +56,6 @@ ENV DEPLOY_LOG=/app/src/sam-deploy.log
 
 ENV DEFAULT_PARAMETER_OVERRIDES="Environment=${ENVIRONMENT} StateTableName=${STATE_TABLE_NAME} EventBusTableName=${EVENT_BUS_TABLE_NAME}"
 
-RUN echo "Ensuring S3 bucket ${DEPLOYMENT_BUCKET} exists"
-RUN if aws s3api head-bucket --bucket "${DEPLOYMENT_BUCKET}" 2>/dev/null; \
-  then echo "Bucket ${DEPLOYMENT_BUCKET} already exists"; \
-\
-else echo "Creating bucket ${DEPLOYMENT_BUCKET}"; \
-  if aws s3api create-bucket --bucket "${DEPLOYMENT_BUCKET}" 2>/dev/null; \
-    then echo "Bucket ${DEPLOYMENT_BUCKET} successfully created"; \
-\
-    else echo "ERROR creating ${DEPLOYMENT_BUCKET}";\
-  fi;\
-fi;
-
-
 WORKDIR /app/src
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
