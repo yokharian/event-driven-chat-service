@@ -7,7 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0.0",
     "boto3>=1.35.0",
-    "websockets>=13.0",
     "sqlalchemy>=2.0.0",
     "streamlit>=1.39.0",
     "python-dotenv>=1.0.0",
@@ -25,8 +24,9 @@ dependencies = [
     "uvicorn>=0.40.0",
     "psycopg2-binary>=2.9.11",
     "moto>=5.1.19",
-    "aws-sam-cli>=1.151.0",
     "aiohttp>=3.13.3",
+    "awscli-local>=0.22.2",
+    "localstack>=4.12.0",
 ]
 
 [build-system]
@@ -164,16 +164,16 @@ help = "Show AWS subcommands"
 [tool.poe.tasks."aws:deploy-local"]
 shell = """
 echo 'Deploying to LocalStack using SAM (Dockerfile source-of-truth)...'
-set -euo pipefail
-STACK_NAME=${STACK_NAME:-chat-service-stack} \
-ENVIRONMENT=${ENVIRONMENT:-local} \
-STATE_TABLE_NAME=${STATE_TABLE_NAME:-simplechat_connections} \
-EVENT_BUS_TABLE_NAME=${EVENT_BUS_TABLE_NAME:-chat_events} \
-AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1} \
-SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-src/infra/template-dev.yaml} \
-DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
-S3_PREFIX=${S3_PREFIX:-local} \
-src/infra/sam_deploy.sh
+docker compose run --rm \
+  -e STACK_NAME=${STACK_NAME:-chat-service-stack} \
+  -e ENVIRONMENT=${ENVIRONMENT:-local} \
+  -e STATE_TABLE_NAME=${STATE_TABLE_NAME:-simplechat_connections} \
+  -e EVENT_BUS_TABLE_NAME=${EVENT_BUS_TABLE_NAME:-chat_events} \
+  -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1} \
+  -e SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-/app/src/infra/template-dev.yaml} \
+  -e DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
+  -e S3_PREFIX=${S3_PREFIX:-local} \
+  infra-setup
 """
 help = "Deploy to LocalStack (Community Edition) using the SAM deploy script"
 
@@ -181,21 +181,23 @@ help = "Deploy to LocalStack (Community Edition) using the SAM deploy script"
 shell = """
 echo 'Deploying to Production...'
 echo 'Step 1: Deploying main infrastructure...'
-STACK_NAME=${STACK_NAME:-chat-service-prod} \
-ENVIRONMENT=${ENVIRONMENT:-prod} \
-PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES:-"Environment=prod"} \
-SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-src/infra/template-dev.yaml} \
-DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
-S3_PREFIX=${S3_PREFIX:-prod/main} \
-src/infra/sam_deploy.sh
+docker compose run --rm \
+  -e STACK_NAME=${STACK_NAME:-chat-service-prod} \
+  -e ENVIRONMENT=${ENVIRONMENT:-prod} \
+  -e PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES:-"Environment=prod"} \
+  -e SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-/app/src/infra/template-dev.yaml} \
+  -e DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
+  -e S3_PREFIX=${S3_PREFIX:-prod/main} \
+  infra-setup
 echo 'Step 2: Deploying WebSocket API (requires LocalStack Pro or AWS)...'
-STACK_NAME=${STACK_NAME:-chat-service-websocket-prod} \
-ENVIRONMENT=${ENVIRONMENT:-prod} \
-PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES_WEBSOCKET:-"Environment=prod"} \
-SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-src/infra/template-prod.yaml} \
-DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
-S3_PREFIX=${S3_PREFIX:-prod/websocket} \
-src/infra/sam_deploy.sh
+docker compose run --rm \
+  -e STACK_NAME=${STACK_NAME:-chat-service-websocket-prod} \
+  -e ENVIRONMENT=${ENVIRONMENT:-prod} \
+  -e PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES_WEBSOCKET:-"Environment=prod"} \
+  -e SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-/app/src/infra/template-prod.yaml} \
+  -e DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
+  -e S3_PREFIX=${S3_PREFIX:-prod/websocket} \
+  infra-setup
 """
 help = "Deploy to production (AWS/LocalStack Pro)"
 
