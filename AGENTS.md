@@ -43,4 +43,3 @@
 - **LocalStack**: `AWS_ACCESS_KEY_ID=test`, `AWS_SECRET_ACCESS_KEY=test`
 - **API Keys**: Use environment variables (e.g., `OPENAI_API_KEY`)
 
-*This constitution is non-negotiable. All code must comply.*
