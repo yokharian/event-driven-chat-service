@@ -16,7 +16,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 - **Exactly-Once Semantics**: Achieve deterministic message processing using idempotency keys and conditional writes
 - **Operational Simplicity**: Minimize infrastructure complexity by using managed AWS services (DynamoDB, Streams,
   Lambda)
-- **Ordering Guarantees**: Maintain message ordering per conversation/channel using partition key + sort key design
+- **Ordering Guarantees**: Maintain message ordering per channel using partition key + sort key design
 
 ## 👤 User Stories
 
@@ -33,7 +33,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 ### User Message Flow
 
 ```
-1. User sends message via WebSocket/REST
+1. User sends message via REST
    ↓
 2. Backend API writes to DynamoDB (channel_id, ts, event_id, role=user, content)
    ↓
@@ -69,7 +69,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 
 ### DynamoDB Table
 
-**Table Name**: `chat-events`
+**Table Name**: `chat_events`
 
 **Key Schema**:
 
@@ -120,7 +120,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 
 **Read Path**:
 
-1. Query by `channel_id` (partition key) to get all messages for a conversation
+1. Query by `channel_id` (partition key) to get all messages for a channel
 2. Use `ts` (sort key) for chronological ordering
 3. Implement cursor-based pagination using `ts` as cursor
 

@@ -96,123 +96,21 @@ Resources:
       TracingEnabled: true
 
   # REST API Lambda Functions
-  CreateConversationFunction:
-    Type: AWS::Serverless::Function
-
-    DependsOn: CreateConversationFunctionLogGroup
-    Properties:
-      FunctionName: !Sub 'chat-create-conversation-${Environment}'
-      Handler: src.rest_api.handlers.create_conversation.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Environment:
-        Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
-          LOG_LEVEL: INFO
-      Events:
-        CreateConversation:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RestApi
-            Path: /conversations
-            Method: POST
-
-  GetConversationFunction:
-    Type: AWS::Serverless::Function
-
-    DependsOn: GetConversationFunctionLogGroup
-    Properties:
-      FunctionName: !Sub 'chat-get-conversation-${Environment}'
-      Handler: src.rest_api.handlers.get_conversation.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Environment:
-        Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
-          LOG_LEVEL: INFO
-      Events:
-        GetConversation:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RestApi
-            Path: /conversations/{conversation_id}
-            Method: GET
-
-  SendMessageFunction:
-    Type: AWS::Serverless::Function
-
-    DependsOn: SendMessageFunctionLogGroup
-    Properties:
-      FunctionName: !Sub 'chat-send-message-${Environment}'
-      Handler: src.rest_api.handlers.send_message.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Environment:
-        Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
-          LOG_LEVEL: INFO
-      Events:
-        SendMessage:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RestApi
-            Path: /messages
-            Method: POST
-
-  GetMessagesFunction:
-    Type: AWS::Serverless::Function
-
-    DependsOn: GetMessagesFunctionLogGroup
-    Properties:
-      FunctionName: !Sub 'chat-get-messages-${Environment}'
-      Handler: src.rest_api.handlers.get_messages.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Environment:
-        Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
-          LOG_LEVEL: INFO
-      Events:
-        GetMessages:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RestApi
-            Path: /conversations/{conversation_id}/messages
-            Method: GET
-
-  GetChannelsFunction:
-    Type: AWS::Serverless::Function
-
-    DependsOn: GetChannelsFunctionLogGroup
-    Properties:
-      FunctionName: !Sub 'chat-get-channels-${Environment}'
-      Handler: src.rest_api.handlers.get_channels.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Environment:
-        Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
-          LOG_LEVEL: INFO
-      Events:
-        GetChannels:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RestApi
-            Path: /channels
-            Method: GET
-
   SendChannelMessageFunction:
     Type: AWS::Serverless::Function
-
-    DependsOn: SendChannelMessageFunctionLogGroup
     Properties:
       FunctionName: !Sub 'chat-send-channel-message-${Environment}'
-      Handler: src.rest_api.handlers.send_channel_message.handler
+      Handler: rest_api.handlers.send_channel_message.handler
       Role: !GetAtt LambdaExecutionRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref SendChannelMessageFunctionLogGroup
+        LogFormat: JSON
+        SystemLogLevel: INFO
+        ApplicationLogLevel: INFO
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
+          POWERTOOLS_TRACE_DISABLED: true
           LOG_LEVEL: INFO
       Events:
         SendChannelMessage:
@@ -221,19 +119,25 @@ Resources:
             RestApiId: !Ref RestApi
             Path: /channels/{channel_id}/messages
             Method: POST
+    Metadata:
+      BuildMethod: makefile
+      BuildTarget: build-SendChannelMessageFunction
 
   GetChannelMessagesFunction:
     Type: AWS::Serverless::Function
-
-    DependsOn: GetChannelMessagesFunctionLogGroup
     Properties:
       FunctionName: !Sub 'chat-get-channel-messages-${Environment}'
-      Handler: src.rest_api.handlers.get_channel_messages.handler
+      Handler: rest_api.handlers.get_channel_messages.handler
       Role: !GetAtt LambdaExecutionRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref GetChannelMessagesFunctionLogGroup
+        LogFormat: JSON
+        SystemLogLevel: INFO
+        ApplicationLogLevel: INFO
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
+          POWERTOOLS_TRACE_DISABLED: true
           LOG_LEVEL: INFO
       Events:
         GetChannelMessages:
@@ -242,38 +146,11 @@ Resources:
             RestApiId: !Ref RestApi
             Path: /channels/{channel_id}/messages
             Method: GET
+    Metadata:
+      BuildMethod: makefile
+      BuildTarget: build-GetChannelMessagesFunction
 
   # Log Groups for REST API Functions
-  CreateConversationFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-create-conversation-${Environment}'
-      RetentionInDays: 7
-
-  GetConversationFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-get-conversation-${Environment}'
-      RetentionInDays: 7
-
-  SendMessageFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-send-message-${Environment}'
-      RetentionInDays: 7
-
-  GetMessagesFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-get-messages-${Environment}'
-      RetentionInDays: 7
-
-  GetChannelsFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-get-channels-${Environment}'
-      RetentionInDays: 7
-
   SendChannelMessageFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -286,7 +163,6 @@ Resources:
       LogGroupName: !Sub '/aws/lambda/chat-get-channel-messages-${Environment}'
       RetentionInDays: 7
 
-  # SSM parameter to share the REST API invoke URL with clients (frontend reads this)
   RestApiEndpointParameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -295,20 +171,31 @@ Resources:
       Description: REST API invoke URL for the chat service
       Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
 
+  # SSM parameter to share the REST API invoke URL with clients (frontend reads this)
+  RestApiIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/chat/${Environment}/rest_api_id"
+      Type: String
+      Description: REST API ID for the chat service
+      Value: !Ref RestApi
+
   # Worker Functions
   AgentFunction:
     Type: AWS::Serverless::Function
-
-    DependsOn: AgentFunctionLogGroup
     Properties:
       FunctionName: !Sub 'chat-agent-worker-${Environment}'
-      Handler: src.rest_api.workers.agent_worker.handler
+      Handler: rest_api.workers.agent_worker.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 120
+      LoggingConfig:
+        LogGroup: !Ref AgentFunctionLogGroup
+        LogFormat: JSON
+        SystemLogLevel: INFO
+        ApplicationLogLevel: INFO
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref EventBusTableName
-          DYNAMODB_ENDPOINT_URL: ""
       Events:
         Stream:
           Type: DynamoDB
@@ -317,15 +204,21 @@ Resources:
             StartingPosition: LATEST
             BatchSize: 10
             MaximumBatchingWindowInSeconds: 5
+    Metadata:
+      BuildMethod: makefile
+      BuildTarget: build-AgentFunction
 
   DeliveryFunction:
     Type: AWS::Serverless::Function
-
-    DependsOn: DeliveryFunctionLogGroup
     Properties:
       FunctionName: !Sub 'chat-delivery-worker-${Environment}'
-      Handler: src.rest_api.workers.delivery_worker.handler
+      Handler: rest_api.workers.delivery_worker.handler
       Role: !GetAtt LambdaExecutionRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref DeliveryFunctionLogGroup
+        LogFormat: JSON
+        SystemLogLevel: INFO
+        ApplicationLogLevel: INFO
       Environment:
         Variables:
           CONNECTIONS_TABLE_NAME: !Ref StateTableName
@@ -337,6 +230,9 @@ Resources:
             StartingPosition: LATEST
             BatchSize: 10
             MaximumBatchingWindowInSeconds: 5
+    Metadata:
+      BuildMethod: makefile
+      BuildTarget: build-DeliveryFunction
 
   # Log Groups for Worker Functions
   AgentFunctionLogGroup:

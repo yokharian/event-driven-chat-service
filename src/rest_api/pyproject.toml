@@ -1,0 +1,19 @@
+[project]
+name = "scalable-chat-backend"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "aws-xray-sdk>=2.15.0",
+    "aws-lambda-powertools>=3.23.0"
+]
+
+[tool.setuptools]
+packages = []
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"

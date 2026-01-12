@@ -7,7 +7,7 @@ skinparam maxMessageSize 150
 skinparam shadowing false
 
 package "Event & Storage" {
-  component "DynamoDB\nchat-events\n(idempotency key)\nSOURCE OF TRUTH" as DDB
+  component "DynamoDB\nchat_events\n(idempotency key)\nSOURCE OF TRUTH" as DDB
 }
 
 package "Consumers" {

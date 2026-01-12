@@ -1,4 +1,3 @@
-from typing import Any
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, alias_generators
@@ -13,17 +12,22 @@ class BaseSchema(BaseModel):
     )
 
 
-class ChatEventMessage(BaseSchema):
-    """Message item stored in the `chat_events` DynamoDB table."""
+class ChannelMessageCreate(BaseSchema):
+    """Channel message creation request model."""
 
+    channel_id: Optional[str]
+    content: str
+    role: str = "user"
+    sender_id: Optional[str] = None
+
+
+class ChannelMessageResponse(BaseSchema):
+    """Channel message response model."""
+
+    message_id: str
     channel_id: str
-    ts: int
+    content: str
+    role: str
+    sender_id: str
     created_at: int
     created_at_iso: str
-    event_id: str
-    message_id: str
-    sender_id: str
-    role: str
-    content: str
-    content_type: str = "text"
-    metadata: Optional[dict[str, Any]] = None

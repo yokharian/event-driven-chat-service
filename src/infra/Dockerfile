@@ -4,10 +4,11 @@ FROM python:3.12-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (incl. AWS CLI v1 from apt)
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
+    awscli \
     zip \
     unzip \
     && rm -rf /var/lib/apt/lists/*
@@ -40,11 +41,11 @@ ENV STACK_NAME=chat-service-stack
 ENV ENVIRONMENT=local
 ENV STATE_TABLE_NAME=simplechat_connections
 ENV EVENT_BUS_TABLE_NAME=chat_events
+ENV DEPLOYMENT_BUCKET=chat-service-sam-deploy
 
-# Separate build/validate so they can be run in intermediate steps
 ENV SOURCE_TEMPLATE_FILE=/app/src/infra/template-dev.yaml
-RUN sam validate --template-file ${SOURCE_TEMPLATE_FILE}
-RUN sam build --template-file ${SOURCE_TEMPLATE_FILE}
+
+WORKDIR /app/src
 
 # Ensure deploy script is executable and use it as the default entrypoint
 RUN chmod +x /app/src/infra/sam_deploy.sh

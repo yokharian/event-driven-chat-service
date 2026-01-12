@@ -26,6 +26,7 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "moto>=5.1.19",
     "aws-sam-cli>=1.151.0",
+    "aiohttp>=3.13.3",
 ]
 
 [build-system]
@@ -69,11 +70,6 @@ help = { shell = '''echo "Available commands:
   poe aws:deploy-local       - Deploy to LocalStack (Community Edition)
   poe aws:deploy-prod        - Deploy to production (AWS/LocalStack Pro)
   poe aws:list-lambdas       - List Lambda functions
-  poe aws:invoke-create-conversation   - sam local invoke CreateConversation
-  poe aws:invoke-get-conversation      - sam local invoke GetConversation
-  poe aws:invoke-send-message          - sam local invoke SendMessage
-  poe aws:invoke-get-messages          - sam local invoke GetMessages
-  poe aws:invoke-get-channels          - sam local invoke GetChannels
   poe aws:invoke-send-channel-message  - sam local invoke SendChannelMessage
   poe aws:invoke-get-channel-messages  - sam local invoke GetChannelMessages
   poe aws:invoke-agent-worker          - sam local invoke AgentFunction (stream)
@@ -145,8 +141,6 @@ shell = '''
 echo "AWS tasks:
   poe aws:deploy-local       (sam build+deploy LocalStack)
   poe aws:deploy-prod        (sam build+deploy prod)
-  poe aws:invoke-create-conversation
-  poe aws:invoke-get-conversation
   poe aws:invoke-send-message
   poe aws:invoke-get-messages
   poe aws:invoke-get-channels
@@ -171,13 +165,14 @@ help = "Show AWS subcommands"
 shell = """
 echo 'Deploying to LocalStack using SAM (Dockerfile source-of-truth)...'
 set -euo pipefail
-sam build --template-file src/infra/template-dev.yaml
 STACK_NAME=${STACK_NAME:-chat-service-stack} \
 ENVIRONMENT=${ENVIRONMENT:-local} \
 STATE_TABLE_NAME=${STATE_TABLE_NAME:-simplechat_connections} \
 EVENT_BUS_TABLE_NAME=${EVENT_BUS_TABLE_NAME:-chat_events} \
 AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1} \
-TEMPLATE_FILE=${TEMPLATE_FILE:-.aws-sam/build/template.yaml} \
+SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-src/infra/template-dev.yaml} \
+DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
+S3_PREFIX=${S3_PREFIX:-local} \
 src/infra/sam_deploy.sh
 """
 help = "Deploy to LocalStack (Community Edition) using the SAM deploy script"
@@ -186,18 +181,20 @@ help = "Deploy to LocalStack (Community Edition) using the SAM deploy script"
 shell = """
 echo 'Deploying to Production...'
 echo 'Step 1: Deploying main infrastructure...'
-sam build --template-file src/infra/template-dev.yaml
 STACK_NAME=${STACK_NAME:-chat-service-prod} \
 ENVIRONMENT=${ENVIRONMENT:-prod} \
 PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES:-"Environment=prod"} \
-TEMPLATE_FILE=${TEMPLATE_FILE:-.aws-sam/build/template.yaml} \
+SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-src/infra/template-dev.yaml} \
+DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
+S3_PREFIX=${S3_PREFIX:-prod/main} \
 src/infra/sam_deploy.sh
 echo 'Step 2: Deploying WebSocket API (requires LocalStack Pro or AWS)...'
-sam build --template-file src/infra/template-prod.yaml
 STACK_NAME=${STACK_NAME:-chat-service-websocket-prod} \
 ENVIRONMENT=${ENVIRONMENT:-prod} \
 PARAMETER_OVERRIDES=${PARAMETER_OVERRIDES_WEBSOCKET:-"Environment=prod"} \
-TEMPLATE_FILE=${TEMPLATE_FILE:-.aws-sam/build/template.yaml} \
+SOURCE_TEMPLATE_FILE=${SOURCE_TEMPLATE_FILE:-src/infra/template-prod.yaml} \
+DEPLOYMENT_BUCKET=${DEPLOYMENT_BUCKET:-chat-service-sam-deploy} \
+S3_PREFIX=${S3_PREFIX:-prod/websocket} \
 src/infra/sam_deploy.sh
 """
 help = "Deploy to production (AWS/LocalStack Pro)"
@@ -210,26 +207,6 @@ help = "Deploy to production (AWS/LocalStack Pro)"
 cmd = "aws lambda list-functions"
 help = "List Lambda functions in LocalStack"
 env = { AWS_ENDPOINT_URL = "http://localhost:4566", AWS_REGION = "us-east-1", AWS_ACCESS_KEY_ID = "test", AWS_SECRET_ACCESS_KEY = "test" }
-
-[tool.poe.tasks."aws:invoke-create-conversation"]
-cmd = "sam local invoke CreateConversationFunction -t src/infra/template-dev.yaml -e scripts/events/create_conversation_event.json"
-help = "Invoke CreateConversationFunction locally with mock event"
-
-[tool.poe.tasks."aws:invoke-get-conversation"]
-cmd = "sam local invoke GetConversationFunction -t src/infra/template-dev.yaml -e scripts/events/get_conversation_event.json"
-help = "Invoke GetConversationFunction locally with mock event"
-
-[tool.poe.tasks."aws:invoke-send-message"]
-cmd = "sam local invoke SendMessageFunction -t src/infra/template-dev.yaml -e scripts/events/send_message_event.json"
-help = "Invoke SendMessageFunction locally with mock event"
-
-[tool.poe.tasks."aws:invoke-get-messages"]
-cmd = "sam local invoke GetMessagesFunction -t src/infra/template-dev.yaml -e scripts/events/get_messages_event.json"
-help = "Invoke GetMessagesFunction locally with mock event"
-
-[tool.poe.tasks."aws:invoke-get-channels"]
-cmd = "sam local invoke GetChannelsFunction -t src/infra/template-dev.yaml -e scripts/events/get_channels_event.json"
-help = "Invoke GetChannelsFunction locally with mock event"
 
 [tool.poe.tasks."aws:invoke-send-channel-message"]
 cmd = "sam local invoke SendChannelMessageFunction -t src/infra/template-dev.yaml -e scripts/events/send_channel_message_event.json"

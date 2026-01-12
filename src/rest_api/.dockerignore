@@ -1,0 +1,71 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.venv
+venv/
+env/
+ENV/
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+.nox/
+tests/
+
+# Documentation
+*.md
+!README.md
+docs/
+.specify/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+dist/
+build/
+*.egg
+
+# Other services (not needed for rest_api)
+src/frontend/
+src/websocket_api/
+src/infrastructure/
+
+# Node (if any)
+node_modules/
+npm-debug.log*
+
+# macOS
+.DS_Store
+._*
+
+# LocalStack
+.localstack/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
