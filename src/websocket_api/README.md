@@ -77,7 +77,8 @@ export DYNAMODB_ENDPOINT_URL=http://localhost:4566
 
 ### Local WebSocket server (no API Gateway required)
 
-`local_server.py` spins up a local FastAPI server that mimics API Gateway WebSocket API (useful because WebSockets are a paid feature in LocalStack).
+`local_server.py` spins up a local FastAPI server that mimics API Gateway WebSocket API (useful because WebSockets are a
+paid feature in LocalStack).
 
 ```bash
 export TABLE_NAME=simplechat_connections
@@ -95,32 +96,6 @@ Then open `http://localhost:8080/` for the test client or connect to `ws://local
 - `TABLE_NAME`: DynamoDB table name (required)
 - `AWS_REGION`: AWS region (defaults to `us-east-1`)
 - `DYNAMODB_ENDPOINT_URL`: Optional endpoint URL for LocalStack/testing
-
-## Project Structure
-
-```text
-websocket_api/
-├── onconnect/
-│   ├── app.py              # Connection handler using DAL
-│   └── pyproject.toml      # Dependencies
-├── ondisconnect/
-│   ├── app.py              # Disconnection handler using DAL
-│   └── pyproject.toml      # Dependencies
-├── sendmessage/
-│   ├── app.py              # Message broadcast handler using DAL
-│   └── pyproject.toml      # Dependencies
-├── settings.py             # Shared settings module
-└── README.md              # This file
-```
-
-## Key Features
-
-- ✅ **DAL Pattern**: All database operations use `DynamoDBRepository`
-- ✅ **Type Hints**: Full type annotations throughout
-- ✅ **Error Handling**: Proper exception handling with repository errors
-- ✅ **Logging**: Structured logging with AWS Lambda Powertools
-- ✅ **Configuration**: Environment-based configuration
-- ✅ **LocalStack Support**: Works with LocalStack for local development
 
 ## References
 
