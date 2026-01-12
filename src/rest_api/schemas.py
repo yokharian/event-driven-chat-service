@@ -15,7 +15,6 @@ class BaseSchema(BaseModel):
 class ChannelMessageCreate(BaseSchema):
     """Channel message creation request model."""
 
-    channel_id: Optional[str]
     content: str
     role: str = "user"
     sender_id: Optional[str] = None

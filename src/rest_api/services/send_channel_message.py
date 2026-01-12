@@ -19,9 +19,11 @@ class SendChannelMessageService(BaseService):
             table_name="chat_events",
         )
 
-    def __call__(self, message_data: ChannelMessageCreate) -> ChannelMessageResponse:
+    def __call__(
+        self, channel_id: str, message_data: ChannelMessageCreate
+    ) -> ChannelMessageResponse:
         """Send a message to a channel (writes to chat_events table)."""
-        logger.info(f"Sending message to channel {message_data.channel_id}")
+        logger.info(f"Sending message to channel {channel_id}")
 
         # Generate IDs
         event_id = str(uuid4())
@@ -32,7 +34,7 @@ class SendChannelMessageService(BaseService):
 
         # Create message event (matches DynamoDB event bus schema)
         chat_event = ChatEventMessage(
-            channel_id=message_data.channel_id,
+            channel_id=channel_id,
             ts=now,
             created_at=now,
             event_id=event_id,
@@ -54,7 +56,7 @@ class SendChannelMessageService(BaseService):
                 logger.info(f"Duplicate event_id {event_id}, returning existing message")
                 # Try to get the existing message
                 existing = self.repository.get_by_key(
-                    channel_id=message_data.channel_id,
+                    channel_id=channel_id,
                     ts=now,
                     raise_not_found=False,
                 )

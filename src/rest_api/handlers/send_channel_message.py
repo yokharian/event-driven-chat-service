@@ -27,8 +27,7 @@ app = APIGatewayRestResolver(
 def send_channel_message(channel_id: str, data: ChannelMessageCreate) -> ChannelMessageResponse:
     """Send a message to a channel."""
     service = SendChannelMessageService()
-    data.channel_id = channel_id
-    result = service(message_data=data)
+    result = service(channel_id=channel_id, message_data=data)
     return result
 
 
