@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "--- $(date -Iseconds) sam deploy start" | tee -a "${DEPLOY_LOG:-/tmp/sam-deploy.log}"
+DEPLOY_LOG=${DEPLOY_LOG:-./sam-deploy.log}
+exec > >(tee -a "$DEPLOY_LOG") 2>&1
+echo "--- $(date -Iseconds) sam_deploy start (log: ${DEPLOY_LOG})"
 
 PARAM_OVERRIDES="${PARAMETER_OVERRIDES:-$DEFAULT_PARAMETER_OVERRIDES}"
 EXTRA_ARGS="${EXTRA_SAM_ARGS:-}"
