@@ -32,33 +32,12 @@ servers:
         default: prod
 
 tags:
-  - name: Messages
-    description: Message sending and retrieval endpoints
   - name: Channels
     description: Channel-based messaging endpoints
   - name: WebSocket
     description: WebSocket connection management
 
 paths:
-  /:
-    get:
-      tags:
-        - Health
-      summary: Root endpoint
-      description: Returns API information
-      operationId: root
-      responses:
-        '200':
-          description: API information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Scalable Chat Service API
-
   /channels/{channel_id}/messages:
     get:
       tags:
