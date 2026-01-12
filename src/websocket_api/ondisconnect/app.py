@@ -1,5 +1,4 @@
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -15,16 +14,15 @@ sys.path.insert(0, str(project_root))
 
 from commons.dal.dynamodb_repository import DynamoDBRepository
 from commons.dynamodb.exceptions import RepositoryError
+from websocket_api.settings import settings
 
 logger = Logger()
 
 # Initialize repository with settings from environment
-table_name = os.environ.get("TABLE_NAME")
-dynamodb_endpoint_url = os.environ.get("DYNAMODB_ENDPOINT_URL")  # Optional, for LocalStack
 repository = DynamoDBRepository(
-    table_name=table_name,
+    table_name=settings.table_name,
     table_hash_keys=["connectionId"],
-    dynamodb_endpoint_url=dynamodb_endpoint_url,
+    dynamodb_endpoint_url=settings.dynamodb_endpoint_url,
     key_auto_assign=False,  # connectionId comes from API Gateway
 )
 
