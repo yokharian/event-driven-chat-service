@@ -28,6 +28,7 @@ EXPOSE 8501
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+ENV IS_DOCKERIZED=true
 
 # Command to run the application
 CMD ["/app/.venv/bin/streamlit", "run", "src/frontend/app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]

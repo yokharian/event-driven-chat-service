@@ -39,7 +39,7 @@ AWS API Gateway WebSocket API.
     - Implement reconnection logic for dropped connections.
     - **Note**: WebSocket is used exclusively for receiving real-time broadcasts. Messages are NOT sent via WebSocket.
 - **REST API Integration**:
-    - Send messages via `POST /messages` or `POST /conversations/{id}/messages` endpoints.
+    - Send messages via `POST /channels/{id}/messages` endpoints.
     - Handle API responses and errors appropriately.
     - Messages sent via REST API are processed by the backend and broadcast to all WebSocket connections.
 - **Testing Capability**: Should be easy to open in multiple browser windows to verify that messages are delivered to
@@ -49,9 +49,9 @@ AWS API Gateway WebSocket API.
 
 1. User enters WebSocket endpoint URL and clicks "Connect".
 2. Frontend establishes WebSocket connection → API Gateway triggers `$connect` route.
-3. User sends message → Frontend sends message via **REST API** (`POST /messages` or
-   `POST /conversations/{id}/messages`) → Backend processes message.
-4. Backend publishes message to SNS → Delivery worker broadcasts to all WebSocket connections.
+3. User sends message → Frontend sends message via **REST API** (`POST /channels/{id}/messages`) → Backend
+   processes message.
+4. Backend publishes message to all WebSocket connections.
 5. Frontend receives broadcast message via WebSocket and displays it in the chat history.
 6. User disconnects → API Gateway triggers `$disconnect` route.
 

@@ -1,5 +1,7 @@
 # Simple WebSockets Chat App
 
+![diagram.svg](diagram.svg)
+
 A WebSocket chat application using AWS API Gateway WebSocket API and Lambda functions, refactored to use the Data Access
 Layer (DAL) pattern.
 
@@ -10,6 +12,7 @@ This application consists of three Lambda functions:
 - **onconnect**: Handles WebSocket connection events, stores connection IDs in DynamoDB
 - **ondisconnect**: Handles WebSocket disconnection events, removes connection IDs from DynamoDB
 - **sendmessage**: Broadcasts messages to all connected WebSocket clients
+- **local_server.py**: Local FastAPI-based WebSocket gateway that emulates API Gateway WebSocket behavior for local/dev
 
 ## Data Access Layer (DAL)
 
@@ -72,6 +75,21 @@ For local development with LocalStack, set the `DYNAMODB_ENDPOINT_URL` environme
 export DYNAMODB_ENDPOINT_URL=http://localhost:4566
 ```
 
+### Local WebSocket server (no API Gateway required)
+
+`local_server.py` spins up a local FastAPI server that mimics API Gateway WebSocket API (useful because WebSockets are a paid feature in LocalStack).
+
+```bash
+export TABLE_NAME=simplechat_connections
+export DYNAMODB_ENDPOINT_URL=http://localhost:4566
+export AWS_REGION=us-east-1
+export WS_PORT=8080  # optional
+
+python -m src.websocket_api.local_server
+```
+
+Then open `http://localhost:8080/` for the test client or connect to `ws://localhost:8080/ws`.
+
 ## Environment Variables
 
 - `TABLE_NAME`: DynamoDB table name (required)
@@ -80,7 +98,7 @@ export DYNAMODB_ENDPOINT_URL=http://localhost:4566
 
 ## Project Structure
 
-```
+```text
 websocket_api/
 ├── onconnect/
 │   ├── app.py              # Connection handler using DAL
