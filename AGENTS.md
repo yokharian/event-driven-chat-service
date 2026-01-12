@@ -1,6 +1,4 @@
-# AGENTS.md - Project Constitution
-
-> I am the Law (Tech Stack & Rules). **Never ignore me.**
+# Project Constitution
 
 ## 🏗️ Tech Stack
 
@@ -10,16 +8,15 @@
 - **Data Access**: DAL pattern with `IRepository` interface
 - **Observability**: AWS Lambda Powertools
 - **Frontend**: Streamlit
-- **Local Development**: Docker Compose + LocalStack + SAM CLI
+- **Local Development**: Docker Compose + LocalStack + `poethepoet` (poe) scripts
 
 ## 📏 Coding Standards
 
 1. **Type Hints** — Use Python typing and Pydantic for validation
 2. **Configuration** — Use `pydantic-settings` (not `os.getenv`)
-3. **Lambda Handlers** — **Synchronous only** (required by `APIGatewayRestResolver`)
-4. **Pydantic v2** — For all request/response models and event payloads
-5. **TDD** — Test Driven Development
-6. **Task Automation** — Use `poethepoet` (poe) for ALL scripts and dev commands in `pyproject.toml`**
+3. **Pydantic v2** — For all request/response models and event payloads
+4. **TDD** — Test Driven Development
+5. **Task Automation** — Use `poethepoet` (poe) for ALL scripts and dev commands in `pyproject.toml`**
 
 ## ✅ Required Patterns
 
@@ -31,15 +28,12 @@
 
 ## 🚫 Forbidden Patterns
 
-1. **No Async Lambda Handlers** — Must be synchronous
-2. **No Direct Database Access** — Always use repository pattern (no boto3 in services)
-3. **No FastAPI** — Use `APIGatewayRestResolver` only
-4. **No Hardcoded Credentials** — Use environment variables
-5. **No Secrets in Repo** — Use environment variables for API keys
-6. **No Makefile/Shell Scripts** — All dev commands must use `poethepoet` in `pyproject.toml`
+1. **No Direct Database Access** — Always use repository pattern (no boto3 in services)
+2. **No FastAPI** — Use `APIGatewayRestResolver` only
+3. **No Hardcoded Credentials** — Use environment variables
+4. **No Secrets in Repo** — Use environment variables for API keys
+5. **No Makefile/Shell Scripts** — All dev commands must use `poethepoet` in `pyproject.toml`
 
 ## 🔒 Security
 
 - **LocalStack**: `AWS_ACCESS_KEY_ID=test`, `AWS_SECRET_ACCESS_KEY=test`
-- **API Keys**: Use environment variables (e.g., `OPENAI_API_KEY`)
-
