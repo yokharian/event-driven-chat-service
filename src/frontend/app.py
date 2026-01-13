@@ -2,9 +2,10 @@ import asyncio
 import json
 import logging
 import os
-import uuid
+from contextlib import suppress
 from functools import lru_cache
 from typing import Any
+from uuid import uuid4
 
 import aiohttp
 import boto3
@@ -63,28 +64,31 @@ class ConsumerSettings(BaseSettings):
 
 
 settings = ConsumerSettings()
-WS_CONN = settings.docker_ws_server_url if settings.is_dockerized else settings.ws_server_url
+WS_CONN = (
+    settings.docker_ws_server_url if settings.is_dockerized else settings.ws_server_url
+)
 
-
-@lru_cache()
 def _resolve_api_base() -> str | None:
     """
     Resolve the REST API base URL. Priority:
     1) Explicit env override: APIGW_REST_API_ID
     2) Fetch SSM using env: API_ID_SSM_PARAM
     """
-    URL_FORMAT = "http://{FQDN}:4566/restapis/{ID}/{STAGE}/_user_request_/"
+    # noinspection HttpUrlsUsage
+    URL_FORMAT = "http://{FQDN}:4566/_aws/execute-api/{ID}/{STAGE}/"
 
     rest_api_id = settings.apigw_rest_api_id
     if rest_api_id:
-        logger.info(f"API ID found using env var {settings.apigw_rest_api_id=}")
+        logger.info(f"API ID found using env var { settings.apigw_rest_api_id=}")
         return URL_FORMAT.format(
             FQDN=settings.localstack_dns, ID=rest_api_id, STAGE=settings.apigw_stage
         )
 
     # Request api gateway id from an SSM parameter
     ssm = boto3.client(
-        "ssm", region_name=settings.aws_default_region, endpoint_url=settings.aws_endpoint_url
+        "ssm",
+        region_name=settings.aws_default_region,
+        endpoint_url=settings.aws_endpoint_url,
     )
     param = ssm.get_parameter(Name=settings.api_id_ssm_param)
     value = param.get("Parameter", {}).get("Value")
@@ -100,12 +104,14 @@ API_BASE_URL = _resolve_api_base().rstrip("/")
 
 def _init_state() -> None:
     """Initialize session state defaults."""
-    logger.debug(f"[-]{API_BASE_URL=},\n\t{WS_CONN=}")
+    logger.debug(f"[-]{API_BASE_URL=},\n\t{ WS_CONN=}")
 
     st.session_state.setdefault("messages", [])
     st.session_state.setdefault("connected", False)
     st.session_state.setdefault("channel_id", "default-room")
     st.session_state.setdefault("connect_requested", False)
+    st.session_state.setdefault("disconnect_requested", False)
+    st.session_state.setdefault("ws_client", None)
 
 
 def _extract_message(payload: Any) -> dict[str, Any]:
@@ -132,7 +138,9 @@ def _extract_message(payload: Any) -> dict[str, Any]:
     return {
         "content": payload.get("content") or payload.get("data") or "",
         "sender": payload.get("sender") or payload.get("role") or "server",
-        "channel": payload.get("channel") or payload.get("channel_id") or "default-room",
+        "channel": payload.get("channel")
+                   or payload.get("channel_id")
+                   or "default-room",
         "role": payload.get("role") or "assistant",
     }
 
@@ -143,7 +151,9 @@ def _render_messages(container: st.delta_generator.DeltaGenerator) -> None:
     with container.container():
         for message in st.session_state.messages:
             with st.chat_message(message.get("role", "assistant")):
-                st.markdown(f"**{message.get('sender', 'user')}**: {message.get('content', '')}")
+                st.markdown(
+                    f"**{message.get('sender', 'user')}**: {message.get('content', '')}"
+                )
 
 
 def _append_message(message: dict[str, Any]) -> None:
@@ -155,14 +165,19 @@ async def _chat_consumer(
         messages_placeholder: st.delta_generator.DeltaGenerator,
 ) -> None:
     """Receive messages (and optionally send one) over WebSocket, updating Streamlit placeholders in-place."""
+    st.session_state.disconnect_requested = False
     async with aiohttp.ClientSession(trust_env=True) as session:
         status_placeholder.subheader(f"Connecting to {WS_CONN}")
         try:
             async with session.ws_connect(WS_CONN, heartbeat=20.0) as websocket:
+                st.session_state.ws_client = websocket
                 status_placeholder.subheader(f"Connected to: {WS_CONN}")
                 st.session_state.connected = True
 
                 async for msg in websocket:
+                    if st.session_state.get("disconnect_requested"):
+                        await websocket.close()
+                        break
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         payload_raw = msg.data
                         try:
@@ -201,10 +216,16 @@ async def _chat_consumer(
         except Exception as exc:  # noqa: BLE001
             status_placeholder.write(f"WebSocket error: {exc}")
             logger.exception(exc)
+            raise exc
+        finally:
+            with suppress(Exception):
+                if st.session_state.get("ws_client") is not None:
+                    await st.session_state.ws_client.close()
+            st.session_state.ws_client = None
             status_placeholder.subheader("Disconnected.")
             st.session_state.connected = False
             st.session_state.connect_requested = False
-            raise exc
+            st.session_state.disconnect_requested = False
 
 
 st.set_page_config(page_title="Local WS Chat", page_icon="💬", layout="wide")
@@ -218,31 +239,39 @@ messages_placeholder = st.empty()
 
 with st.sidebar:
     st.header("Connection")
-    display_name = st.text_input("Display name", value="user")
+    display_name = st.text_input("Display name", value=str(uuid4()).split("-")[0])
     channel = st.text_input("Channel", value="default-room")
     connect_clicked = st.button("Connect to WS Server", type="primary")
     disconnect_clicked = st.button("Disconnect", type="secondary")
 
     if connect_clicked:
         st.session_state.connect_requested = True
+        st.session_state.disconnect_requested = False
         st.session_state.channel_id = channel
 
     if disconnect_clicked:
         st.session_state.connect_requested = False
+        st.session_state.disconnect_requested = True
         st.session_state.connected = False
         st.session_state.channel_id = None
         st.session_state.messages = []
+        ws_client = st.session_state.get("ws_client")
+        if ws_client is not None:
+            with suppress(Exception):
+                asyncio.run(ws_client.close())
+        st.session_state.ws_client = None
         status.subheader("Disconnected.")
 
-_render_messages(messages_placeholder)
+# _render_messages(messages_placeholder)
 
 if prompt := st.chat_input("Type a message..."):
     payload = {
-        "id": str(uuid.uuid4()),
+        "id": str(uuid4()),
         "channel": channel,
-        "sender": display_name or "user",
+        "sender_id": display_name,
         "role": "user",
         "content": prompt,
+        "content_type": "txt",
     }
 
     _append_message(payload)
@@ -257,9 +286,12 @@ if prompt := st.chat_input("Type a message..."):
 
 if st.session_state.get("connect_requested"):
     st.session_state.channel_id = channel
-    resp = requests.get(f"{API_BASE_URL}/channels/{st.session_state.channel_id}/messages")
+    resp = requests.get(
+        f"{API_BASE_URL}/channels/{st.session_state.channel_id}/messages"
+    )
+    resp.raise_for_status()
     st.session_state.messages = [
-        {"role": m["role"], "content": m["content"], "id": m["id"]} for m in resp.json()
+        {"role": message["role"], "content": message["content"], "id": message["id"]} for message in resp.json()
     ]
 
     asyncio.run(_chat_consumer(status, messages_placeholder))
