@@ -20,6 +20,7 @@ COPY src/frontend/pyproject.toml src/frontend/uv.lock ./
 RUN uv sync --frozen --no-cache
 
 # Copy the rest of the application code
+COPY src/commons/ /app/commons/
 COPY src/frontend/ /app/src/frontend/
 
 # Expose the port the app runs on

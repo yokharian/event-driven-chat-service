@@ -1,110 +1,21 @@
 import asyncio
 import json
-import logging
-import os
 from contextlib import suppress
-from functools import lru_cache
 from typing import Any
 from uuid import uuid4
 
 import aiohttp
-import boto3
 import requests
 import streamlit as st
-from pydantic import Field
-from pydantic_settings import BaseSettings
 
+from commons.schemas import ChatEventMessage
 
-def _setup_logging() -> logging.Logger:
-    """Configure a simple logger for the frontend app."""
-    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, level_name, logging.INFO)
-    if not logging.getLogger().handlers:
-        logging.basicConfig(
-            level=level,
-            format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-        )
-    _logger = logging.getLogger("frontend.app")
-    _logger.setLevel(level)
-    return _logger
-
-
-logger = _setup_logging()
-
-
-class ConsumerSettings(BaseSettings):
-    """WebSocket client configuration."""
-
-    model_config = {"populate_by_name": True}
-    aws_default_region: str = Field(default="us-east-1", alias="AWS_DEFAULT_REGION")
-    aws_endpoint_url: str | None = Field(default=None, alias="AWS_ENDPOINT_URL")
-
-    ws_base_url: str | None = Field(default=None, alias="WS_BASE_URL")
-
-    api_id_ssm_param: str | None = Field(default=None, alias="API_ID_SSM_PARAM")
-    apigw_rest_api_id: str | None = Field(default=None, alias="APIGW_REST_API_ID")
-    apigw_stage: str = Field(default="local", alias="APIGW_STAGE")
-    localstack_dns: str = Field(default="localstack", alias="LOCALSTACK_DNS")
-
-    ws_server_url: str = Field(
-        default="ws://0.0.0.0:8080/ws",
-        alias="WS_SERVER_URL",
-        description="Base WebSocket endpoint (local_server default).",
-    )
-    docker_ws_server_url: str = Field(
-        default="",
-        alias="DOCKER_WS_SERVER_URL",
-        description="Docker target for the WebSocket server.",
-    )
-    is_dockerized: bool = Field(
-        default=False,
-        alias="IS_DOCKERIZED",
-        description="Whether the app is running in Docker.",
-    )
-
-
-settings = ConsumerSettings()
-WS_CONN = (
-    settings.docker_ws_server_url if settings.is_dockerized else settings.ws_server_url
-)
-
-def _resolve_api_base() -> str | None:
-    """
-    Resolve the REST API base URL. Priority:
-    1) Explicit env override: APIGW_REST_API_ID
-    2) Fetch SSM using env: API_ID_SSM_PARAM
-    """
-    # noinspection HttpUrlsUsage
-    URL_FORMAT = "http://{FQDN}:4566/_aws/execute-api/{ID}/{STAGE}/"
-
-    rest_api_id = settings.apigw_rest_api_id
-    if rest_api_id:
-        logger.info(f"API ID found using env var { settings.apigw_rest_api_id=}")
-        return URL_FORMAT.format(
-            FQDN=settings.localstack_dns, ID=rest_api_id, STAGE=settings.apigw_stage
-        )
-
-    # Request api gateway id from an SSM parameter
-    ssm = boto3.client(
-        "ssm",
-        region_name=settings.aws_default_region,
-        endpoint_url=settings.aws_endpoint_url,
-    )
-    param = ssm.get_parameter(Name=settings.api_id_ssm_param)
-    value = param.get("Parameter", {}).get("Value")
-    rest_api_id = value.strip()
-    logger.info(f"API ID resolved using env var api_id_ssm_param={rest_api_id}")
-    return URL_FORMAT.format(
-        FQDN=settings.localstack_dns, ID=rest_api_id, STAGE=settings.apigw_stage
-    )
-
-
-API_BASE_URL = _resolve_api_base().rstrip("/")
+from .config import API_BASE_URL, WS_CONN, logger
 
 
 def _init_state() -> None:
     """Initialize session state defaults."""
-    logger.debug(f"[-]{API_BASE_URL=},\n\t{ WS_CONN=}")
+    logger.debug(f"[-]{ API_BASE_URL=},\n\t{ WS_CONN=}")
 
     st.session_state.setdefault("messages", [])
     st.session_state.setdefault("connected", False)
@@ -139,8 +50,8 @@ def _extract_message(payload: Any) -> dict[str, Any]:
         "content": payload.get("content") or payload.get("data") or "",
         "sender": payload.get("sender") or payload.get("role") or "server",
         "channel": payload.get("channel")
-                   or payload.get("channel_id")
-                   or "default-room",
+        or payload.get("channel_id")
+        or "default-room",
         "role": payload.get("role") or "assistant",
     }
 
@@ -161,8 +72,8 @@ def _append_message(message: dict[str, Any]) -> None:
 
 
 async def _chat_consumer(
-        status_placeholder: st.delta_generator.DeltaGenerator,
-        messages_placeholder: st.delta_generator.DeltaGenerator,
+    status_placeholder: st.delta_generator.DeltaGenerator,
+    messages_placeholder: st.delta_generator.DeltaGenerator,
 ) -> None:
     """Receive messages (and optionally send one) over WebSocket, updating Streamlit placeholders in-place."""
     st.session_state.disconnect_requested = False
@@ -208,12 +119,12 @@ async def _chat_consumer(
                         _append_message(parsed)
                         _render_messages(messages_placeholder)
                     elif msg.type in (
-                            aiohttp.WSMsgType.CLOSE,
-                            aiohttp.WSMsgType.CLOSED,
-                            aiohttp.WSMsgType.ERROR,
+                        aiohttp.WSMsgType.CLOSE,
+                        aiohttp.WSMsgType.CLOSED,
+                        aiohttp.WSMsgType.ERROR,
                     ):
                         break
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status_placeholder.write(f"WebSocket error: {exc}")
             logger.exception(exc)
             raise exc
@@ -262,18 +173,16 @@ with st.sidebar:
         st.session_state.ws_client = None
         status.subheader("Disconnected.")
 
-# _render_messages(messages_placeholder)
 
 if prompt := st.chat_input("Type a message..."):
-    payload = {
-        "id": str(uuid4()),
-        "channel": channel,
-        "sender_id": display_name,
-        "role": "user",
-        "content": prompt,
-        "content_type": "txt",
-    }
-
+    message = ChatEventMessage(
+        channel_id=channel,
+        sender_id=display_name,
+        role="user",
+        content=prompt,
+        content_type="txt",
+    )
+    payload = message.model_dump()
     _append_message(payload)
     _render_messages(messages_placeholder)
     resp = requests.post(
@@ -291,12 +200,11 @@ if st.session_state.get("connect_requested"):
     )
     resp.raise_for_status()
     st.session_state.messages = [
-        {"role": message["role"], "content": message["content"], "id": message["id"]} for message in resp.json()
+        {"role": message["role"], "content": message["content"], "id": message["id"]}
+        for message in resp.json()
     ]
-
     asyncio.run(_chat_consumer(status, messages_placeholder))
-else:
-    if not st.session_state.connected:
-        st.session_state.channel_id = None
-        st.session_state.messages = []
-        status.subheader("Disconnected.")
+elif not st.session_state.connected:
+    st.session_state.channel_id = None
+    st.session_state.messages = []
+    status.subheader("Disconnected.")
