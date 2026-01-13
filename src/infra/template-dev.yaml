@@ -163,7 +163,8 @@ Resources:
         ApplicationLogLevel: INFO
       Environment:
         Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
+          CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
+          CONNECTIONS_TABLE_NAME: !Ref StateTableName
           POWERTOOLS_TRACE_DISABLED: true
           LOG_LEVEL: INFO
       Events:
@@ -190,7 +191,8 @@ Resources:
         ApplicationLogLevel: INFO
       Environment:
         Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
+          CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
+          CONNECTIONS_TABLE_NAME: !Ref StateTableName
           POWERTOOLS_TRACE_DISABLED: true
           LOG_LEVEL: INFO
       Events:
@@ -249,7 +251,8 @@ Resources:
         ApplicationLogLevel: INFO
       Environment:
         Variables:
-          DYNAMODB_TABLE_NAME: !Ref EventBusTableName
+          CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
+          CONNECTIONS_TABLE_NAME: !Ref StateTableName
           AGENT_IDEMPOTENCY_TABLE_NAME: !Ref AgentIdempotencyTableName
       Events:
         Stream:
@@ -276,6 +279,7 @@ Resources:
         ApplicationLogLevel: INFO
       Environment:
         Variables:
+          CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
           CONNECTIONS_TABLE_NAME: !Ref StateTableName
           DELIVERY_IDEMPOTENCY_TABLE_NAME: !Ref DeliveryIdempotencyTableName
       Events:

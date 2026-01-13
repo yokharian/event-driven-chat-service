@@ -15,7 +15,18 @@ from botocore.exceptions import ClientError
 
 from commons.repositories import connections_repo
 from commons.schemas import ChatEventMessage
-from rest_api.settings import settings
+from typing import Optional
+
+from commons.repositories import Settings as CommonRepositoriesSettings
+
+
+class Settings(CommonRepositoriesSettings):
+    websocket_api_endpoint: Optional[str] = None
+    delivery_idempotency_table_name: str
+
+
+
+settings = Settings()
 
 metrics = Metrics()
 logger = Logger()

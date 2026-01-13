@@ -11,7 +11,6 @@ from commons.cors import cors_config
 from commons.repositories import chat_events_repository
 from rest_api.schemas import ChannelMessageResponse
 from rest_api.services import GetChannelMessagesService
-from rest_api.settings import settings
 
 metrics = Metrics()
 logger = Logger()
@@ -19,7 +18,6 @@ tracer = Tracer()
 
 app = APIGatewayRestResolver(
     enable_validation=True,
-    debug=settings.debug,
     cors=cors_config,
 )
 

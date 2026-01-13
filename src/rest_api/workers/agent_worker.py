@@ -13,7 +13,17 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from commons.repositories import chat_events_repository
 from commons.schemas import ChatEventMessage
-from rest_api.settings import settings
+
+from commons.repositories import Settings as CommonRepositoriesSettings
+
+
+class Settings(CommonRepositoriesSettings):
+    agent_idempotency_table_name: str
+
+
+
+settings = Settings()
+
 
 metrics = Metrics()
 logger = Logger()
