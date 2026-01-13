@@ -59,6 +59,7 @@ Globals:
         POWERTOOLS_SERVICE_NAME: chat-service
         POWERTOOLS_METRICS_NAMESPACE: chat-service
         LOG_LEVEL: INFO
+        POWERTOOLS_TRACE_DISABLED: true
     CodeUri: ..
 
 Resources:
@@ -165,8 +166,6 @@ Resources:
         Variables:
           CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
           CONNECTIONS_TABLE_NAME: !Ref StateTableName
-          POWERTOOLS_TRACE_DISABLED: true
-          LOG_LEVEL: INFO
       Events:
         SendChannelMessage:
           Type: Api
@@ -193,8 +192,6 @@ Resources:
         Variables:
           CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
           CONNECTIONS_TABLE_NAME: !Ref StateTableName
-          POWERTOOLS_TRACE_DISABLED: true
-          LOG_LEVEL: INFO
       Events:
         GetChannelMessages:
           Type: Api
@@ -211,6 +208,12 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/aws/lambda/chat-send-channel-message-${Environment}'
+      RetentionInDays: 7
+
+  SendChannelMessageWebsocketFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/chat-send-channel-message-websocket-${Environment}'
       RetentionInDays: 7
 
   GetChannelMessagesFunctionLogGroup:
