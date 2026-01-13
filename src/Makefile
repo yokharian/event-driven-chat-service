@@ -24,13 +24,14 @@ REBUILD_DEPS ?= false
 
 FUNCTIONS := \
 	SendChannelMessageFunction \
+	SendChannelMessageWebsocketFunction \
 	GetChannelMessagesFunction \
 	AgentFunction \
 	DeliveryFunction
 
 BUILD_TARGETS := $(addprefix build-,$(FUNCTIONS))
 
-.PHONY: deps copy-deps clean-deps $(FUNCTIONS) $(BUILD_TARGETS)
+.PHONY: deps copy-deps $(FUNCTIONS) $(BUILD_TARGETS)
 
 # Construye dependencias a partir de src/rest_api/pyproject.toml usando uv
 ECHO_SEP = echo "------------------------------------------------------------"
@@ -71,6 +72,7 @@ $(foreach fn,$(FUNCTIONS),$(eval $(call COPY_DEPS_FN,$(fn))))
 copy-deps: $(FUNCTIONS)
 
 clean-deps:
+	$(ECHO) "[deps] Deleted dependencies directory"; \
 	@rm -rf "$(DEPS_DIR)"
 
 #

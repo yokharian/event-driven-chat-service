@@ -37,7 +37,6 @@ ENV AWS_ACCESS_KEY_ID=test
 ENV AWS_SECRET_ACCESS_KEY=test
 ENV AWS_ENDPOINT_URL=http://localhost:4566
 ENV AWS_DEFAULT_REGION=us-east-1
-ENV ENDPOINT_ARG=""
 
 # Set cloudformation parameters
 ENV STACK_NAME=chat-service-stack
@@ -49,9 +48,6 @@ ENV EVENT_BUS_TABLE_NAME=chat_events
 ENV BUILD_DIR=.aws-sam/build
 ENV TEMPLATE_FILE=${BUILD_DIR}/template.yaml
 ENV SOURCE_TEMPLATE_FILE=/app/src/infra/template-dev.yaml
-ENV PACKAGED_TEMPLATE_FILE=.aws-sam/build/packaged-template.yaml
-ENV S3_PREFIX=chat-service
-ENV DEPLOYMENT_BUCKET=chat-service-sam-deploy
 ENV DEPLOY_LOG=/app/src/sam-deploy.log
 
 ENV DEFAULT_PARAMETER_OVERRIDES="Environment=${ENVIRONMENT} StateTableName=${STATE_TABLE_NAME} EventBusTableName=${EVENT_BUS_TABLE_NAME}"

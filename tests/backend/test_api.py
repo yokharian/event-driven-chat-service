@@ -3,6 +3,12 @@ from rest_api.services import (
     GetChannelMessagesService,
     SendChannelMessageService,
 )
+from rest_api.schemas import ChannelMessageCreateWebsocket
+from rest_api.services.send_channel_message_websocket import (
+    SendChannelMessageWebsocketService,
+)
+from botocore.exceptions import ClientError
+import json
 
 
 class FakeRepo:
@@ -104,3 +110,64 @@ def test_send_channel_message_service_is_idempotent():
     assert first.id == "test-123"
     assert second.id == "test-123"
     assert first.content == second.content
+
+
+class FakeConnectionsRepo:
+    def __init__(self, connections=None):
+        self.connections = connections or []
+        self.deleted = []
+
+    def get_list(self):
+        return list(self.connections)
+
+    def delete(self, connectionId: str):
+        self.deleted.append(connectionId)
+
+
+class FakeApigwClient:
+    def __init__(self, gone_id: str | None = None):
+        self.sent = []
+        self.gone_id = gone_id
+
+    def post_to_connection(self, ConnectionId: str, Data):
+        if self.gone_id and ConnectionId == self.gone_id:
+            raise ClientError(
+                {"Error": {"Code": "GoneException", "Message": "gone"}},
+                "PostToConnection",
+            )
+        self.sent.append({"id": ConnectionId, "data": Data})
+
+
+def test_send_channel_message_websocket_service_broadcasts_and_embeds_channel_id():
+    connections_repo = FakeConnectionsRepo(
+        connections=[{"connectionId": "c-1"}, {"connectionId": "c-2"}]
+    )
+    client = FakeApigwClient()
+
+    service = SendChannelMessageWebsocketService(connections_repository=connections_repo)
+    service._apigw_client = client  # inject fake client
+
+    payload = ChannelMessageCreateWebsocket(content="hi", user_id="u-1", metadata={"foo": "bar"})
+
+    result = service(channel_id="general", message_data=payload)
+
+    assert result.channel_id == "general"
+    assert len(client.sent) == 2
+    body = json.loads(client.sent[0]["data"])
+    assert body["channelId"] == "general"
+    assert body["userId"] == "u-1"
+    assert body["content"] == "hi"
+    assert body["metadata"] == {"foo": "bar"}
+
+
+def test_send_channel_message_websocket_service_prunes_stale_connections():
+    connections_repo = FakeConnectionsRepo(connections=[{"connectionId": "gone-1"}])
+    client = FakeApigwClient(gone_id="gone-1")
+
+    service = SendChannelMessageWebsocketService(connections_repository=connections_repo)
+    service._apigw_client = client
+
+    payload = ChannelMessageCreateWebsocket(content="hi", user_id="u-1")
+    service(channel_id="general", message_data=payload)
+
+    assert connections_repo.deleted == ["gone-1"]
