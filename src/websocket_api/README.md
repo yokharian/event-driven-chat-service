@@ -30,7 +30,7 @@ Each function initializes the repository with:
 ```python
 repository = DynamoDBRepository(
     table_name=os.environ.get("TABLE_NAME"),
-    table_hash_keys=["connectionId"],
+    table_hash_key="connectionId",
     dynamodb_endpoint_url=os.environ.get("DYNAMODB_ENDPOINT_URL"),  # Optional for LocalStack
     key_auto_assign=False,  # connectionId comes from API Gateway
 )

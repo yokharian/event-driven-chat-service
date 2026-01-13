@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Dict, List
 
 import boto3
@@ -11,6 +12,10 @@ from commons.dynamodb.exceptions import RepositoryError
 from commons.repositories import connections_repo
 
 logger = Logger()
+
+
+# Initialize clients
+apigw_management_api = boto3.client("apigatewaymanagementapi")
 
 
 @event_parser(model=APIGatewayWebSocketMessageEventModel)
@@ -33,12 +38,6 @@ def handler(event: APIGatewayWebSocketMessageEventModel, context: Any) -> Dict[s
     except RepositoryError as err:
         logger.error(f"Failed to retrieve connections: {err}", exc_info=True)
         return {"statusCode": 500, "body": json.dumps({"error": "Failed to retrieve connections"})}
-
-    # Initialize API Gateway Management API client
-    request_context = event.request_context
-    endpoint_url = f"https://{request_context.domain_name}/{request_context.stage}"
-
-    apigw_management_api = boto3.client("apigatewaymanagementapi", endpoint_url=endpoint_url)
 
     # Parse message data from request body
     try:

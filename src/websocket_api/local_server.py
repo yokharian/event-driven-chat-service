@@ -10,7 +10,6 @@ Usage:
 
 Environment Variables:
     TABLE_NAME: DynamoDB table name for connections (default: connections)
-    DYNAMODB_ENDPOINT_URL: LocalStack endpoint (default: http://localhost:4566)
     AWS_REGION: AWS region (default: us-east-1)
     WS_PORT: WebSocket server port (default: 8080)
 """
@@ -21,22 +20,11 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-from moto import mock_aws
-
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from websocket_api.onconnect.app import handler as onconnect_handler  # noqa: E402
-from websocket_api.ondisconnect.app import handler as ondisconnect_handler  # noqa: E402
-from websocket_api.sendmessage.app import handler as sendmessage_handler  # noqa: E402
-from aws_lambda_powertools.utilities.parser.models import (  # noqa: E402
+from aws_lambda_powertools.utilities.parser.models import (
     APIGatewayWebSocketConnectEventModel,
     APIGatewayWebSocketConnectEventRequestContext,
     APIGatewayWebSocketDisconnectEventModel,
@@ -45,13 +33,24 @@ from aws_lambda_powertools.utilities.parser.models import (  # noqa: E402
     APIGatewayWebSocketMessageEventModel,
     APIGatewayWebSocketMessageEventRequestContext,
 )
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from websocket_api.onconnect.app import handler as onconnect_handler  # noqa: E402
+from websocket_api.ondisconnect.app import handler as ondisconnect_handler  # noqa: E402
+from websocket_api.sendmessage.app import handler as sendmessage_handler  # noqa: E402
 
 
 class ConnectionManager:
     """Manages WebSocket connections and message delivery."""
 
     def __init__(self):
-        self.connections: Dict[str, WebSocket] = {}
+        self.connections: dict[str, WebSocket] = {}
 
     def add(self, connection_id: str, websocket: WebSocket) -> None:
         """Register a new WebSocket connection."""
@@ -77,36 +76,6 @@ class ConnectionManager:
 connections = ConnectionManager()
 
 
-def create_moto_post_to_connection_hook(original_method):
-    """Wrap moto's post_to_connection to also send to real WebSockets."""
-
-    def hooked_post_to_connection(self, connection_id: str, data: bytes):
-        result = original_method(self, connection_id, data)
-
-        data_str = data.decode() if isinstance(data, bytes) else data
-        if not connections.exists(connection_id):
-            from botocore.exceptions import ClientError
-
-            raise ClientError(
-                {
-                    "Error": {
-                        "Code": "GoneException",
-                        "Message": f"Connection {connection_id} gone",
-                    }
-                },
-                "PostToConnection",
-            )
-
-        try:
-            asyncio.create_task(connections.send(connection_id, data_str))
-        except RuntimeError:
-            asyncio.run(connections.send(connection_id, data_str))
-
-        return result
-
-    return hooked_post_to_connection
-
-
 def _create_identity() -> APIGatewayWebSocketEventIdentity:
     """Create a minimal identity object."""
     return APIGatewayWebSocketEventIdentity.model_construct(source_ip="127.0.0.1", user_agent=None)
@@ -114,7 +83,7 @@ def _create_identity() -> APIGatewayWebSocketEventIdentity:
 
 def _create_base_context_kwargs(connection_id: str, domain_name: str, stage: str) -> dict:
     """Create common request context kwargs."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "connection_id": connection_id,
         "domain_name": domain_name,
@@ -131,10 +100,10 @@ def _create_base_context_kwargs(connection_id: str, domain_name: str, stage: str
 
 
 def create_connect_event(
-        connection_id: str,
-        domain_name: str = "localhost",
-        stage: str = "local",
-) -> Dict[str, Any]:
+    connection_id: str,
+    domain_name: str = "localhost",
+    stage: str = "local",
+) -> dict[str, Any]:
     """Create a $connect event using Powertools models."""
     ctx_kwargs = _create_base_context_kwargs(connection_id, domain_name, stage)
     ctx_kwargs.update(route_key="$connect", event_type="CONNECT", message_direction="IN")
@@ -151,10 +120,10 @@ def create_connect_event(
 
 
 def create_disconnect_event(
-        connection_id: str,
-        domain_name: str = "localhost",
-        stage: str = "local",
-) -> Dict[str, Any]:
+    connection_id: str,
+    domain_name: str = "localhost",
+    stage: str = "local",
+) -> dict[str, Any]:
     """Create a $disconnect event using Powertools models."""
     ctx_kwargs = _create_base_context_kwargs(connection_id, domain_name, stage)
     ctx_kwargs.update(
@@ -176,11 +145,11 @@ def create_disconnect_event(
 
 
 def create_message_event(
-        connection_id: str,
-        body: str = "",
-        domain_name: str = "localhost",
-        stage: str = "local",
-) -> Dict[str, Any]:
+    connection_id: str,
+    body: str = "",
+    domain_name: str = "localhost",
+    stage: str = "local",
+) -> dict[str, Any]:
     """Create a sendmessage event using Powertools models."""
     ctx_kwargs = _create_base_context_kwargs(connection_id, domain_name, stage)
     ctx_kwargs.update(
@@ -212,27 +181,68 @@ class LambdaContext:
         self.aws_request_id = str(uuid.uuid4())
 
 
+def _create_local_apigw_client(connection_manager: ConnectionManager):
+    """
+    Create a mock API Gateway Management API client that sends to local WebSockets.
+
+    This is necessary because:
+    1. LocalStack's apigatewaymanagementapi is a paid feature
+    2. moto's mock_aws() doesn't intercept calls with explicit endpoint_url
+    3. sendmessage/app.py passes endpoint_url to boto3.client()
+    """
+    from unittest.mock import MagicMock
+
+    from botocore.exceptions import ClientError
+
+    mock_client = MagicMock()
+
+    def post_to_connection(ConnectionId: str, Data: bytes | str):
+        data_str = Data.decode() if isinstance(Data, bytes) else Data
+
+        if not connection_manager.exists(ConnectionId):
+            raise ClientError(
+                {"Error": {"Code": "GoneException", "Message": f"Connection {ConnectionId} gone"}},
+                "PostToConnection",
+            )
+
+        try:
+            asyncio.create_task(connection_manager.send(ConnectionId, data_str))
+        except RuntimeError:
+            asyncio.run(connection_manager.send(ConnectionId, data_str))
+
+        return {"ResponseMetadata": {"HTTPStatusCode": 200}}
+
+    mock_client.post_to_connection = post_to_connection
+    return mock_client
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager that sets up moto mocking and backend hook."""
-    from moto.apigatewaymanagementapi.models import ApiGatewayManagementApiBackend
+    """
+    Application lifespan manager that patches boto3 for local WebSocket delivery.
 
-    original_post = ApiGatewayManagementApiBackend.post_to_connection
-    mock = mock_aws()
-    mock.start()
-    ApiGatewayManagementApiBackend.post_to_connection = create_moto_post_to_connection_hook(
-        original_post
-    )
+    We patch boto3.client directly (not using moto) because:
+    - sendmessage/app.py uses explicit endpoint_url which bypasses moto
+    - LocalStack doesn't support apigatewaymanagementapi in free tier
+    """
+    import boto3
 
-    print("✓ Moto AWS mocking active")
-    print("✓ API Gateway Management API hooked to local WebSockets")
+    original_client = boto3.client
+
+    def patched_client(service_name, *args, **kwargs):
+        if service_name == "apigatewaymanagementapi":
+            return _create_local_apigw_client(connections)
+        return original_client(service_name, *args, **kwargs)
+
+    boto3.client = patched_client
+
+    print("✓ API Gateway Management API patched for local WebSocket delivery")
 
     try:
         yield
     finally:
-        ApiGatewayManagementApiBackend.post_to_connection = original_post
-        mock.stop()
-        print("✓ Moto AWS mocking stopped")
+        boto3.client = original_client
+        print("✓ boto3.client restored")
 
 
 app = FastAPI(title="Local WebSocket API Gateway", lifespan=lifespan)
@@ -263,7 +273,7 @@ async def handle_message(connection_id: str, data: str, context: LambdaContext) 
             response = sendmessage_handler(event, context)
             if response.get("statusCode") != 200:
                 print(f"SendMessage handler failed: {response}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"Error in sendmessage handler: {exc}")
     else:
         print(f"Unknown action: {action}")
@@ -278,10 +288,6 @@ async def websocket_endpoint(websocket: WebSocket):
     connections.add(connection_id, websocket)
     print(f"New connection: {connection_id}")
 
-    os.environ.setdefault("TABLE_NAME", "connections")
-    os.environ.setdefault("DYNAMODB_ENDPOINT_URL", "http://localhost:4566")
-    os.environ.setdefault("AWS_REGION", "us-east-1")
-
     context = LambdaContext()
 
     try:
@@ -290,7 +296,7 @@ async def websocket_endpoint(websocket: WebSocket):
             print(f"Connect handler failed: {response}")
             await websocket.close(code=1008, reason="Connection rejected")
             return
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"Error in connect handler: {exc}")
         await websocket.close(code=1011, reason="Internal error")
         return
@@ -301,13 +307,13 @@ async def websocket_endpoint(websocket: WebSocket):
             await handle_message(connection_id, data, context)
     except WebSocketDisconnect:
         print(f"Client disconnected: {connection_id}")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"WebSocket error: {exc}")
     finally:
         connections.remove(connection_id)
         try:
             ondisconnect_handler(create_disconnect_event(connection_id), context)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"Error in disconnect handler: {exc}")
 
 
