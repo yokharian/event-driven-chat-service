@@ -30,6 +30,24 @@ Parameters:
     AllowedPattern: ^[A-Za-z_]+$
     ConstraintDescription: "Required. Can be characters and underscore only. No numbers or special characters allowed."
 
+  AgentIdempotencyTableName:
+    Type: String
+    Default: "chat_agent_idempotency"
+    Description: (Required) The name of the DynamoDB table for agent worker idempotency. Minimum 3 characters
+    MinLength: 3
+    MaxLength: 50
+    AllowedPattern: ^[A-Za-z_]+$
+    ConstraintDescription: "Required. Can be characters and underscore only. No numbers or special characters allowed."
+
+  DeliveryIdempotencyTableName:
+    Type: String
+    Default: "chat_delivery_idempotency"
+    Description: (Required) The name of the DynamoDB table for delivery worker idempotency. Minimum 3 characters
+    MinLength: 3
+    MaxLength: 50
+    AllowedPattern: ^[A-Za-z_]+$
+    ConstraintDescription: "Required. Can be characters and underscore only. No numbers or special characters allowed."
+
 Globals:
   Function:
     Runtime: python3.12
@@ -80,6 +98,42 @@ Resources:
       SSESpecification:
         SSEEnabled: True
       TableName: !Ref StateTableName
+
+  # Idempotency Table for Agent Worker
+  AgentIdempotencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref AgentIdempotencyTableName
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: "expiration"
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # Idempotency Table for Delivery Worker
+  DeliveryIdempotencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DeliveryIdempotencyTableName
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: "expiration"
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
 
   # REST API Gateway
   RestApi:
@@ -196,6 +250,7 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref EventBusTableName
+          AGENT_IDEMPOTENCY_TABLE_NAME: !Ref AgentIdempotencyTableName
       Events:
         Stream:
           Type: DynamoDB
@@ -222,6 +277,7 @@ Resources:
       Environment:
         Variables:
           CONNECTIONS_TABLE_NAME: !Ref StateTableName
+          DELIVERY_IDEMPOTENCY_TABLE_NAME: !Ref DeliveryIdempotencyTableName
       Events:
         Stream:
           Type: DynamoDB
@@ -277,6 +333,8 @@ Resources:
                 Resource:
                   - !GetAtt EventBusTable.Arn
                   - !GetAtt ConnectionsTable.Arn
+                  - !GetAtt AgentIdempotencyTable.Arn
+                  - !GetAtt DeliveryIdempotencyTable.Arn
               - Effect: Allow
                 Action:
                   - dynamodb:DescribeStream

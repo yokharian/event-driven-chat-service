@@ -4,14 +4,32 @@ from typing import Any, Dict
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.utilities.data_classes import event_source, DynamoDBStreamEvent
+from aws_lambda_powertools.utilities.idempotency import (
+    DynamoDBPersistenceLayer,
+    IdempotencyConfig,
+    idempotent_function,
+)
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from commons.repositories import chat_events_repository
-from commons.schemas import MessageDynamoModel, ChatEventMessage
+from commons.schemas import ChatEventMessage
+from rest_api.settings import settings
 
 metrics = Metrics()
 logger = Logger()
 tracer = Tracer()
+
+persistence_layer = DynamoDBPersistenceLayer(
+    table_name=settings.agent_idempotency_table_name,
+    key_attr="id",
+    expiry_attr="expiration",
+)
+
+idempotency_config = IdempotencyConfig(
+    event_key_jmespath="dynamodb.NewImage.id.S",  # Extract id from DynamoDB stream record
+    expires_after_seconds=3600,  # 1 hour TTL
+    use_local_cache=False,  # Reduce DynamoDB reads
+)
 
 
 def generate_ai_response(user_message: str) -> str:
@@ -20,6 +38,11 @@ def generate_ai_response(user_message: str) -> str:
     return f"AI Response to: {user_message}"
 
 
+@idempotent_function(
+    data_keyword_argument="record",
+    persistence_store=persistence_layer,
+    config=idempotency_config,
+)
 def process_user_message(record: Dict[str, Any]) -> None:
     """Process a user message from DynamoDB Stream and generate an AI response."""
     try:
@@ -75,7 +98,7 @@ def handler(event: DynamoDBStreamEvent, context: LambdaContext):
 
     for record in event.get("Records", []):
         try:
-            process_user_message(record)
+            process_user_message(record=record)  # Must use keyword argument for idempotency
         except Exception as e:
             logger.error(f"Failed to process record: {e}", exc_info=True)
             # Re-raise to trigger Lambda retry

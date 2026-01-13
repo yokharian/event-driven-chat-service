@@ -3,14 +3,19 @@
 from typing import Any, Dict
 
 import boto3
-from aws_lambda_powertools import Logger
-from aws_lambda_powertools import Metrics, Tracer
+from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.utilities.data_classes import event_source, DynamoDBStreamEvent
+from aws_lambda_powertools.utilities.idempotency import (
+    DynamoDBPersistenceLayer,
+    IdempotencyConfig,
+    idempotent_function,
+)
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from botocore.exceptions import ClientError
 
 from commons.repositories import connections_repo
 from commons.schemas import ChatEventMessage
+from rest_api.settings import settings
 
 metrics = Metrics()
 logger = Logger()
@@ -18,6 +23,18 @@ tracer = Tracer()
 
 # Initialize clients
 api_gateway = boto3.client("apigatewaymanagementapi")
+
+persistence_layer = DynamoDBPersistenceLayer(
+    table_name=settings.delivery_idempotency_table_name,
+    key_attr="id",
+    expiry_attr="expiration",
+)
+
+idempotency_config = IdempotencyConfig(
+    event_key_jmespath="dynamodb.NewImage.id.S",
+    expires_after_seconds=3600,
+    use_local_cache=False,
+)
 
 
 def get_connections_for_channel(channel_id: str) -> list[str]:
@@ -31,6 +48,11 @@ def get_connections_for_channel(channel_id: str) -> list[str]:
         return []
 
 
+@idempotent_function(
+    data_keyword_argument="record",
+    persistence_store=persistence_layer,
+    config=idempotency_config,
+)
 def deliver_message(record: Dict[str, Any]) -> None:
     """Send a message to WebSocket clients."""
     try:
@@ -102,7 +124,7 @@ def handler(event: DynamoDBStreamEvent, context: LambdaContext):
 
     for record in event.get("Records", []):
         try:
-            deliver_message(record)
+            deliver_message(record=record)  # Must use keyword argument for idempotency
         except Exception as e:
             logger.error(f"Failed to deliver record: {e}", exc_info=True)
             # Re-raise to trigger Lambda retry
