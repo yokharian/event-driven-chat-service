@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 from moto import mock_aws
 
 # Add project root to path
@@ -240,52 +240,8 @@ app = FastAPI(title="Local WebSocket API Gateway", lifespan=lifespan)
 
 @app.get("/")
 async def get_root():
-    """Root endpoint with WebSocket test page."""
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head><title>Local WebSocket API Gateway</title></head>
-    <body>
-        <h1>Local WebSocket API Gateway</h1>
-        <p>WebSocket endpoint: <code>ws://localhost:8080/ws</code></p>
-        <div>
-            <h2>Test Client</h2>
-            <button onclick="connect()">Connect</button>
-            <button onclick="disconnect()">Disconnect</button>
-            <button onclick="sendMessage()">Send Message</button>
-            <br><br>
-            <input type="text" id="messageInput" placeholder="Enter message" style="width: 300px;">
-            <br><br>
-            <div id="messages" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto;"></div>
-        </div>
-        <script>
-            let ws = null;
-            function connect() {
-                ws = new WebSocket(`${location.protocol === 'https:' ? 'wss://' : 'ws://'}${location.host}/ws`);
-                ws.onopen = () => addMessage('Connected!');
-                ws.onmessage = (e) => addMessage('Received: ' + e.data);
-                ws.onclose = () => addMessage('Disconnected');
-                ws.onerror = (e) => addMessage('Error: ' + e);
-            }
-            function disconnect() { if (ws) { ws.close(); ws = null; } }
-            function sendMessage() {
-                const input = document.getElementById('messageInput');
-                if (ws && input.value) {
-                    ws.send(JSON.stringify({action: 'sendmessage', data: input.value}));
-                    addMessage('Sent: ' + input.value);
-                    input.value = '';
-                }
-            }
-            function addMessage(msg) {
-                const div = document.getElementById('messages');
-                div.innerHTML += '<p>' + msg + '</p>';
-                div.scrollTop = div.scrollHeight;
-            }
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html)
+    """Serve the WebSocket test page from index.html."""
+    return FileResponse(Path(__file__).parent / "index.html")
 
 
 async def handle_message(connection_id: str, data: str, context: LambdaContext) -> None:
