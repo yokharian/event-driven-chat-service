@@ -58,7 +58,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
-      - TABLE_NAME=simplechat_connections
+      - TABLE_NAME=connections
       # websocket
       - WS_PORT=8080
     volumes:

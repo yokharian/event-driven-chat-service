@@ -35,7 +35,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 ```
 1. User sends message via REST
    ↓
-2. Backend API writes to DynamoDB (channel_id, ts, event_id, role=user, content)
+2. Backend API writes to DynamoDB (channel_id, ts, id, role=user, content)
    ↓
 3. DynamoDB Stream captures INSERT event
    ↓
@@ -55,12 +55,12 @@ the source of truth for chat messages and enables event-driven processing for AI
 ### Idempotency Flow
 
 ```
-1. Backend receives message with potential duplicate event_id
+1. Backend receives message with potential duplicate id
    ↓
-2. Attempt conditional write: "event_id does not exist"
+2. Attempt conditional write: "id does not exist"
    ↓
-3a. If event_id new → Write succeeds, stream event generated
-3b. If event_id exists → Write rejected (ConditionalCheckFailedException)
+3a. If id new → Write succeeds, stream event generated
+3b. If id exists → Write rejected (ConditionalCheckFailedException)
    ↓
 4. Return success to client (idempotent operation)
 ```
@@ -78,7 +78,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 
 **Message Attributes**:
 
-- `event_id` (String) - Idempotency key (ULID/UUID) for exactly-once processing
+- `id` (String) - Idempotency key (ULID/UUID) for exactly-once processing
 - `message_id` (String) - Public identifier
 - `sender_id` (String) - User ID or system ID
 - `role` (String) - Message author type: `user`, `ai`, or `system`
@@ -100,7 +100,7 @@ the source of truth for chat messages and enables event-driven processing for AI
 - Processes user messages from the stream (filters for `role=user`)
 - Calls LLM service to generate AI responses
 - Writes AI response back to DynamoDB (triggers new stream event)
-- Uses `event_id` for idempotency to prevent duplicate processing
+- Uses `id` for idempotency to prevent duplicate processing
 
 #### 2. Delivery Consumer (`chat-delivery-worker`)
 
@@ -113,8 +113,8 @@ the source of truth for chat messages and enables event-driven processing for AI
 **Write Path**:
 
 1. Backend API receives message via REST/WebSocket
-2. Generate `event_id` (ULID/UUID) for idempotency
-3. Write to DynamoDB with conditional write (check `event_id` doesn't exist)
+2. Generate `id` (ULID/UUID) for idempotency
+3. Write to DynamoDB with conditional write (check `id` doesn't exist)
 4. DynamoDB Stream automatically generates event
 5. Lambda consumers triggered asynchronously
 

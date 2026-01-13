@@ -1,6 +1,15 @@
 from workers import agent_worker
 
 
+class FakeRepo:
+    def __init__(self):
+        self.created = []
+
+    def create(self, item):
+        self.created.append(item)
+        return item
+
+
 def make_stream_record(role: str = "user", content: str = "hi"):
     return {
         "eventName": "INSERT",

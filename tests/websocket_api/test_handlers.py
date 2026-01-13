@@ -7,18 +7,12 @@ without requiring actual AWS credentials or LocalStack.
 
 import json
 import os
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import boto3
 import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
-
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 # Set default env vars early so handler module imports can construct repositories
 os.environ.setdefault("TABLE_NAME", "test_connections")
@@ -37,7 +31,9 @@ def lambda_context():
     class LambdaContext:
         function_name = "test-handler"
         function_version = "$LATEST"
-        invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test-handler"
+        invoked_function_arn = (
+            "arn:aws:lambda:us-east-1:123456789012:function:test-handler"
+        )
         memory_limit_in_mb = 128
         aws_request_id = "test-request-id"
 
@@ -53,12 +49,12 @@ def set_env_vars(monkeypatch):
 
 
 def _make_request_context(
-    route_key: str,
-    event_type: str,
-    connection_id: str = "test-connection-123",
-    *,
-    domain_name: str = "test.execute-api.us-east-1.amazonaws.com",
-    stage: str = "test",
+        route_key: str,
+        event_type: str,
+        connection_id: str = "test-connection-123",
+        *,
+        domain_name: str = "test.execute-api.us-east-1.amazonaws.com",
+        stage: str = "test",
 ) -> dict:
     """Build a Powertools-compatible requestContext payload."""
     return {
@@ -82,7 +78,7 @@ def _make_request_context(
 
 
 def _make_event(
-    route_key: str, event_type: str, *, body: str = "", connection_id: str = None
+        route_key: str, event_type: str, *, body: str = "", connection_id: str = None
 ) -> dict:
     """Assemble a full API Gateway WebSocket event."""
     return {
@@ -110,7 +106,9 @@ class TestOnConnectHandler:
             dynamodb.create_table(
                 TableName="test_connections",
                 KeySchema=[{"AttributeName": "connectionId", "KeyType": "HASH"}],
-                AttributeDefinitions=[{"AttributeName": "connectionId", "AttributeType": "S"}],
+                AttributeDefinitions=[
+                    {"AttributeName": "connectionId", "AttributeType": "S"}
+                ],
                 BillingMode="PAY_PER_REQUEST",
             )
         except dynamodb.meta.client.exceptions.ResourceInUseException:
@@ -145,7 +143,9 @@ class TestOnDisconnectHandler:
             table = dynamodb.create_table(
                 TableName="test_connections",
                 KeySchema=[{"AttributeName": "connectionId", "KeyType": "HASH"}],
-                AttributeDefinitions=[{"AttributeName": "connectionId", "AttributeType": "S"}],
+                AttributeDefinitions=[
+                    {"AttributeName": "connectionId", "AttributeType": "S"}
+                ],
                 BillingMode="PAY_PER_REQUEST",
             )
         except dynamodb.meta.client.exceptions.ResourceInUseException:
@@ -179,7 +179,9 @@ class TestSendMessageHandler:
             table = dynamodb.create_table(
                 TableName="test_connections",
                 KeySchema=[{"AttributeName": "connectionId", "KeyType": "HASH"}],
-                AttributeDefinitions=[{"AttributeName": "connectionId", "AttributeType": "S"}],
+                AttributeDefinitions=[
+                    {"AttributeName": "connectionId", "AttributeType": "S"}
+                ],
                 BillingMode="PAY_PER_REQUEST",
             )
         except dynamodb.meta.client.exceptions.ResourceInUseException:
@@ -222,7 +224,9 @@ class TestSendMessageHandler:
             table = dynamodb.create_table(
                 TableName="test_connections",
                 KeySchema=[{"AttributeName": "connectionId", "KeyType": "HASH"}],
-                AttributeDefinitions=[{"AttributeName": "connectionId", "AttributeType": "S"}],
+                AttributeDefinitions=[
+                    {"AttributeName": "connectionId", "AttributeType": "S"}
+                ],
                 BillingMode="PAY_PER_REQUEST",
             )
         except dynamodb.meta.client.exceptions.ResourceInUseException:
@@ -242,7 +246,9 @@ class TestSendMessageHandler:
 
             def _post_to_connection(ConnectionId: str, Data: str):
                 if ConnectionId == "conn-1":
-                    raise ClientError({"Error": {"Code": "GoneException"}}, "PostToConnection")
+                    raise ClientError(
+                        {"Error": {"Code": "GoneException"}}, "PostToConnection"
+                    )
                 return {"ResponseMetadata": {"HTTPStatusCode": 200}}
 
             mock_apigw.post_to_connection.side_effect = _post_to_connection
@@ -263,7 +269,9 @@ class TestSendMessageHandler:
             dynamodb.create_table(
                 TableName="test_connections",
                 KeySchema=[{"AttributeName": "connectionId", "KeyType": "HASH"}],
-                AttributeDefinitions=[{"AttributeName": "connectionId", "AttributeType": "S"}],
+                AttributeDefinitions=[
+                    {"AttributeName": "connectionId", "AttributeType": "S"}
+                ],
                 BillingMode="PAY_PER_REQUEST",
             )
         except dynamodb.meta.client.exceptions.ResourceInUseException:

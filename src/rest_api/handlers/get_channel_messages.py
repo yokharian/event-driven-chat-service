@@ -8,6 +8,7 @@ from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from commons.cors import cors_config
+from commons.repositories import chat_events_repository
 from rest_api.schemas import ChannelMessageResponse
 from rest_api.services import GetChannelMessagesService
 from rest_api.settings import settings
@@ -26,7 +27,7 @@ app = APIGatewayRestResolver(
 @app.get("/channels/<channel_id>/messages")
 def get_channel_messages(channel_id: str) -> List[ChannelMessageResponse]:
     """Get messages from a channel."""
-    service = GetChannelMessagesService()
+    service = GetChannelMessagesService(repository=chat_events_repository)
     result = service(channel_id=channel_id)
     return result
 

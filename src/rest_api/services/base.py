@@ -1,9 +1,8 @@
 import dataclasses
 from typing import Optional
 
-from commons.dal.dynamodb_repository import DynamoDBRepository
+from commons.dal import DynamoDBRepository
 from commons.dal.interface import IRepository
-
 from ..settings import settings
 
 

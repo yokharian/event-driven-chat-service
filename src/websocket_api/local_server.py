@@ -9,7 +9,7 @@ Usage:
     python -m src.websocket_api.local_server
 
 Environment Variables:
-    TABLE_NAME: DynamoDB table name for connections (default: simplechat_connections)
+    TABLE_NAME: DynamoDB table name for connections (default: connections)
     DYNAMODB_ENDPOINT_URL: LocalStack endpoint (default: http://localhost:4566)
     AWS_REGION: AWS region (default: us-east-1)
     WS_PORT: WebSocket server port (default: 8080)
@@ -151,11 +151,11 @@ app = FastAPI(title="Local WebSocket API Gateway")
 
 
 def create_api_gateway_event(
-    connection_id: str,
-    route: str,
-    body: str = "",
-    domain_name: str = "localhost",
-    stage: str = "local",
+        connection_id: str,
+        route: str,
+        body: str = "",
+        domain_name: str = "localhost",
+        stage: str = "local",
 ) -> Dict[str, Any]:
     """
     Create an API Gateway WebSocket event structure compatible with Powertools event models.
@@ -303,7 +303,7 @@ async def websocket_endpoint(websocket: WebSocket):
     print(f"New connection: {connection_id}")
 
     # Set environment variables for Lambda handlers
-    os.environ["TABLE_NAME"] = os.getenv("TABLE_NAME", "simplechat_connections")
+    os.environ["TABLE_NAME"] = os.getenv("TABLE_NAME", "connections")
     os.environ["DYNAMODB_ENDPOINT_URL"] = os.getenv(
         "DYNAMODB_ENDPOINT_URL", "http://localhost:4566"
     )

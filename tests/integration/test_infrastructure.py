@@ -3,7 +3,6 @@ from importlib import import_module
 from unittest.mock import patch
 
 import boto3
-import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
 
@@ -58,7 +57,7 @@ def test_infrastructure_exists():
     )
     _create_table_if_absent(
         dynamodb_client,
-        table_name="simplechat_connections",
+        table_name="connections",
         KeySchema=[{"AttributeName": "connectionId", "KeyType": "HASH"}],
         AttributeDefinitions=[{"AttributeName": "connectionId", "AttributeType": "S"}],
         BillingMode="PAY_PER_REQUEST",
@@ -69,7 +68,7 @@ def test_infrastructure_exists():
 
     tables = dynamodb_client.list_tables().get("TableNames", [])
     assert "chat_events" in tables
-    assert "simplechat_connections" in tables
+    assert "connections" in tables
 
     functions = lambda_client.list_functions()["Functions"]
     func_names = [f["FunctionName"] for f in functions]

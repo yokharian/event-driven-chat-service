@@ -50,13 +50,13 @@ def dynamodb_table(mocked_aws):
         AttributeDefinitions=[
             {"AttributeName": "conversation_id", "AttributeType": "S"},
             {"AttributeName": "created_at", "AttributeType": "N"},
-            {"AttributeName": "message_id", "AttributeType": "S"},
+            {"AttributeName": "id", "AttributeType": "S"},
         ],
         GlobalSecondaryIndexes=[
             {
                 "IndexName": "MessageIdIndex",
                 "KeySchema": [
-                    {"AttributeName": "message_id", "KeyType": "HASH"},
+                    {"AttributeName": "id", "KeyType": "HASH"},
                     {"AttributeName": "created_at", "KeyType": "RANGE"},
                 ],
                 "Projection": {"ProjectionType": "ALL"},

@@ -1,6 +1,7 @@
 import json
 
 from botocore.exceptions import ClientError
+
 from workers import delivery_worker
 
 
@@ -11,9 +12,24 @@ class FakeApiGateway:
 
     def post_to_connection(self, ConnectionId, Data):
         if self.fail_first and not self.sent:
+            # Simulate a single stale connection failure, then allow subsequent sends
+            self.fail_first = False
             error_response = {"Error": {"Code": "GoneException"}}
             raise ClientError(error_response, "PostToConnection")
         self.sent.append((ConnectionId, Data))
+
+
+class FakeConnectionsRepo:
+    def __init__(self, items=None):
+        self.items = items or []
+        self.deleted = []
+
+    def get_list(self):
+        return list(self.items)
+
+    def delete(self, **keys):
+        if "connectionId" in keys:
+            self.deleted.append(keys["connectionId"])
 
 
 def make_delivery_record(channel_id: str = "ch-1", role: str = "assistant", content: str = "hi"):
@@ -27,7 +43,7 @@ def make_delivery_record(channel_id: str = "ch-1", role: str = "assistant", cont
                 "role": {"S": role},
                 "content": {"S": content},
                 "created_at_iso": {"S": "2024-01-01T00:00:00Z"},
-                "message_id": {"S": "m-1"},
+                "id": {"S": "m-1"},
             }
         },
     }

@@ -1,32 +1,17 @@
 """Agent Worker: AWS Lambda handler for processing user messages from DynamoDB Streams."""
 
-import os
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict
-from uuid import uuid4
 
-from aws_lambda_powertools import Logger
+from aws_lambda_powertools import Logger, Metrics, Tracer
+from aws_lambda_powertools.utilities.data_classes import event_source, DynamoDBStreamEvent
+from aws_lambda_powertools.utilities.typing import LambdaContext
 
-# Add project root to path to import commons
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+from commons.repositories import chat_events_repository
+from commons.schemas import MessageDynamoModel, ChatEventMessage
 
-from commons.dal.dynamodb_repository import DynamoDBRepository
-from commons.schemas import MessageDynamoModel
-
+metrics = Metrics()
 logger = Logger()
-
-# Initialize repository
-table_name = os.environ.get("DYNAMODB_TABLE_NAME")
-dynamodb_endpoint_url = os.environ.get("DYNAMODB_ENDPOINT_URL") or None
-repository = DynamoDBRepository(
-    table_name=table_name,
-    table_hash_keys=["channel_id", "ts"],
-    dynamodb_endpoint_url=dynamodb_endpoint_url,
-    key_auto_assign=False,  # Keys come from the event
-)
+tracer = Tracer()
 
 
 def generate_ai_response(user_message: str) -> str:
@@ -48,24 +33,9 @@ def process_user_message(record: Dict[str, Any]) -> None:
             logger.warning("No NewImage in stream record")
             return
 
-        # Convert DynamoDB format to dict
-        # DynamoDB format: {"S": "value"} for strings, {"N": "123"} for numbers
-        def dynamodb_to_dict(item: Dict[str, Any]) -> Dict[str, Any]:
-            result = {}
-            for key, value in item.items():
-                if "S" in value:
-                    result[key] = value["S"]
-                elif "N" in value:
-                    result[key] = int(value["N"])
-                elif "M" in value:
-                    result[key] = dynamodb_to_dict(value["M"])
-            return result
-
-        event_data = dynamodb_to_dict(new_image)
-
         # Validate and parse message
         try:
-            message = MessageDynamoModel(**event_data)
+            message = ChatEventMessage(**new_image)
         except Exception as e:
             logger.error(f"Failed to parse message: {e}", exc_info=True)
             return
@@ -80,31 +50,26 @@ def process_user_message(record: Dict[str, Any]) -> None:
         # Generate AI Response
         ai_content = generate_ai_response(message.content)
 
-        # Create AI message in DynamoDB
-        now = int(datetime.now(timezone.utc).timestamp())
-        event_id = str(uuid4())
-
-        ai_message = {
-            "channel_id": message.channel_id,
-            "ts": now,
-            "event_id": event_id,
-            "message_id": str(uuid4()),
-            "role": "assistant",
-            "content": ai_content,
-            "item_type": "message",
-            "created_at": now,
-            "created_at_iso": datetime.now(timezone.utc).isoformat(),
-        }
-
-        repository.create(item=ai_message)
+        # Create message event (matches DynamoDB event bus schema)
+        chat_event = ChatEventMessage(
+            channel_id=message.channel_id,
+            sender_id="assistant-llm",
+            role="assistant",
+            content=ai_content,
+            content_type="text",
+        )
+        chat_events_repository.create(item=chat_event.model_dump())
         logger.info(f"✓ Generated AI response for channel {message.channel_id}")
-
     except Exception as e:
         logger.error(f"Error processing user message: {e}", exc_info=True)
         raise
 
 
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+@event_source(data_class=DynamoDBStreamEvent)
+@logger.inject_lambda_context()
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def handler(event: DynamoDBStreamEvent, context: LambdaContext):
     """AWS Lambda handler for DynamoDB Stream events."""
     logger.info(f"Received DynamoDB stream event with {len(event.get('Records', []))} records")
 

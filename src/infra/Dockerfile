@@ -42,7 +42,7 @@ ENV ENDPOINT_ARG=""
 # Set cloudformation parameters
 ENV STACK_NAME=chat-service-stack
 ENV ENVIRONMENT=local
-ENV STATE_TABLE_NAME=simplechat_connections
+ENV STATE_TABLE_NAME=connections
 ENV EVENT_BUS_TABLE_NAME=chat_events
 
 # SAM parameters

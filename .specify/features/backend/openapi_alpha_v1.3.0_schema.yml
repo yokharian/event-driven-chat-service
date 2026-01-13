@@ -165,13 +165,13 @@ components:
     ChannelMessage:
       type: object
       required:
-        - event_id
+        - id
         - channel_id
         - user_id
         - content
         - ts
       properties:
-        event_id:
+        id:
           type: string
           description: Unique identifier for the event/message
           example: "evt-550e8400-e29b-41d4-a716-446655440000"
@@ -331,7 +331,7 @@ x-websocket-routes:
                 status:
                   type: string
                   example: "sent"
-                event_id:
+                id:
                   type: string
                   example: "evt-550e8400-e29b-41d4-a716-446655440000"
       '400':

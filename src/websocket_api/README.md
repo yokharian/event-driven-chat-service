@@ -81,7 +81,7 @@ export DYNAMODB_ENDPOINT_URL=http://localhost:4566
 paid feature in LocalStack).
 
 ```bash
-export TABLE_NAME=simplechat_connections
+export TABLE_NAME=connections
 export DYNAMODB_ENDPOINT_URL=http://localhost:4566
 export AWS_REGION=us-east-1
 export WS_PORT=8080  # optional

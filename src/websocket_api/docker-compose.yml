@@ -50,7 +50,7 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - DYNAMODB_ENDPOINT_URL=http://localstack:4566
-      - TABLE_NAME=simplechat_connections
+      - TABLE_NAME=connections
       - AWS_REGION=us-east-1
       - WS_PORT=8080
     volumes:

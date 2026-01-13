@@ -11,14 +11,10 @@ keys:
     type: 'N'
     description: Unix timestamp (seconds or milliseconds). Sorted ascending.
 attributes:
-  event_id:
+  id:
     type: S
     required: true
     description: Idempotency key (ULID/UUID). Unique per message insert.
-  message_id:
-    type: S
-    required: true
-    description: 'Public identifier (can equal event_id, but not required).'
   sender_id:
     type: S
     required: true

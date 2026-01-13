@@ -14,7 +14,7 @@ Parameters:
 
   StateTableName:
     Type: String
-    Default: "simplechat_connections"
+    Default: "connections"
 
   EventBusTableName:
     Type: String

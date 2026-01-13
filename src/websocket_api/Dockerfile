@@ -24,7 +24,7 @@ COPY src/websocket_api/ /app/websocket_api/
 COPY src/commons/ /app/commons/
 
 # Set environment variables
-ENV TABLE_NAME=simplechat_connections
+ENV TABLE_NAME=connections
 ENV AWS_REGION=us-east-1
 ENV DYNAMODB_ENDPOINT_URL=http://localstack:4566
 ENV WS_PORT=8080

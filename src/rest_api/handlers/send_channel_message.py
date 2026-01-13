@@ -8,6 +8,7 @@ from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from commons.cors import cors_config
+from commons.repositories import chat_events_repository
 from rest_api.schemas import ChannelMessageCreate, ChannelMessageResponse
 from rest_api.services import SendChannelMessageService
 from rest_api.settings import settings
@@ -26,7 +27,7 @@ app = APIGatewayRestResolver(
 @app.post("/channels/<channel_id>/messages")
 def send_channel_message(channel_id: str, data: ChannelMessageCreate) -> ChannelMessageResponse:
     """Send a message to a channel."""
-    service = SendChannelMessageService()
+    service = SendChannelMessageService(repository=chat_events_repository)
     result = service(channel_id=channel_id, message_data=data)
     return result
 

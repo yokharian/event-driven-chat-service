@@ -1,7 +1,5 @@
-from datetime import datetime, timezone
-from uuid import uuid4
-
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.shared.dynamodb_deserializer import TypeDeserializer
 
 from commons.schemas import ChatEventMessage
 from .base import BaseService
@@ -20,50 +18,32 @@ class SendChannelMessageService(BaseService):
         )
 
     def __call__(
-        self, channel_id: str, message_data: ChannelMessageCreate
+            self, channel_id: str, message_data: ChannelMessageCreate
     ) -> ChannelMessageResponse:
         """Send a message to a channel (writes to chat_events table)."""
         logger.info(f"Sending message to channel {channel_id}")
 
-        # Generate IDs
-        event_id = str(uuid4())
-        message_id = str(uuid4())
-        now_dt = datetime.now(timezone.utc)
-        now = int(now_dt.timestamp())
-        now_iso = now_dt.isoformat().replace("+00:00", "Z")
-
         # Create message event (matches DynamoDB event bus schema)
         chat_event = ChatEventMessage(
+            id=message_data.id,
             channel_id=channel_id,
-            ts=now,
-            created_at=now,
-            event_id=event_id,
-            message_id=message_id,
-            sender_id=message_data.sender_id or "system",
+            sender_id=message_data.sender_id or "unknown",
             role=message_data.role,
             content=message_data.content,
             content_type="text",
-            created_at_iso=now_iso,
         )
 
         # Use conditional write for idempotency (if event_id exists, skip)
-        try:
+        # TODO convert to a transaction to comply with ACID
+        exists_response = self.repository.get_by_key(raise_not_found=False, id={
+            'S': chat_event.id,
+        })
+        if exists_response is None:
             created = self.repository.create(item=chat_event.model_dump())
-            logger.info(f"Successfully created message event {event_id}")
-        except Exception as e:
-            # If it's a conditional check failure, it's a duplicate - return success
-            if "ConditionalCheckFailedException" in str(e):
-                logger.info(f"Duplicate event_id {event_id}, returning existing message")
-                # Try to get the existing message
-                existing = self.repository.get_by_key(
-                    channel_id=channel_id,
-                    ts=now,
-                    raise_not_found=False,
-                )
-                if existing:
-                    existing_event = ChatEventMessage.model_validate(existing)
-                    return ChannelMessageResponse.model_validate(existing_event.model_dump())
-            raise
-
-        created_event = ChatEventMessage.model_validate(created)
-        return ChannelMessageResponse.model_validate(created_event.model_dump())
+            created_event = ChatEventMessage.model_validate(created)
+            return ChannelMessageResponse.model_validate(created_event.model_dump())
+        else:
+            exists_response: dict = exists_response['Item']
+            chat_event = {k: TypeDeserializer().deserialize(v) for k, v in exists_response.items()}
+            chat_event = ChannelMessageResponse.model_validate(chat_event)
+            return chat_event
