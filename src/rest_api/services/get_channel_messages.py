@@ -7,13 +7,7 @@ logger = Logger()
 
 
 class GetChannelMessagesService(BaseService):
-    """Service to get messages for a channel."""
 
-    def __init__(self, repository=None):
-        super().__init__(
-            repository=repository,
-            table_name="chat_events",
-        )
 
     def __call__(self, channel_id: str) -> list[ChannelMessageResponse]:
         """Get all messages for a channel."""

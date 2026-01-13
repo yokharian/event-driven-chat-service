@@ -9,11 +9,10 @@ logger = Logger()
 
 @dataclasses.dataclass
 class TableManager:
-    dynamodb_endpoint_url: str
     client: botocore.client.BaseClient = dataclasses.field(init=False)
 
     def __post_init__(self):
-        self.client = boto3.client("dynamodb", endpoint_url=self.dynamodb_endpoint_url)
+        self.client = boto3.client("dynamodb")
 
     def create_table(self, *, table_name, table_hash_keys, secondary_indexes=None):
         sgi = [

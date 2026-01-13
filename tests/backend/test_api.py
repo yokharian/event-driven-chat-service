@@ -8,6 +8,7 @@ from rest_api.services import (
 class FakeRepo:
     def __init__(self, items=None):
         self.items = items or []
+        self.table_hash_key = "channel_id"
 
     def get_list(self):
         return list(self.items)
@@ -16,7 +17,18 @@ class FakeRepo:
         self.items.append(item)
         return item
 
-    def get_by_key(self, **_kwargs):
+    def get_by_key(self, *, raise_not_found=True, filter_attributes=None, limit=1, **keys):
+        partition_key = self.table_hash_key
+        partition_value = keys.get(partition_key)
+        results = [item for item in self.items if item.get(partition_key) == partition_value]
+        if filter_attributes:
+            for name, value in filter_attributes.items():
+                results = [item for item in results if item.get(name) == value]
+        item = results[0] if results else None
+        if item:
+            return item
+        if raise_not_found:
+            raise KeyError(f"Object {keys} was not found")
         return None
 
 
@@ -67,7 +79,7 @@ def test_send_channel_message_service_persists_message():
     message_repo = FakeRepo()
     service = SendChannelMessageService(repository=message_repo)
 
-    payload = ChannelMessageCreate(content="Hello", role="user", sender_id="alice")
+    payload = ChannelMessageCreate(id="msg-1", content="Hello", role="user", sender_id="alice")
     result = service(channel_id="general", message_data=payload)
 
     assert result.channel_id == "general"
@@ -77,3 +89,18 @@ def test_send_channel_message_service_persists_message():
     assert len(message_repo.items) == 1
     assert message_repo.items[0]["channel_id"] == "general"
     assert message_repo.items[0]["id"] == result.id
+
+
+def test_send_channel_message_service_is_idempotent():
+    message_repo = FakeRepo()
+    service = SendChannelMessageService(repository=message_repo)
+
+    payload = ChannelMessageCreate(id="test-123", content="Hello", role="user", sender_id="alice")
+
+    first = service(channel_id="general", message_data=payload)
+    second = service(channel_id="general", message_data=payload)
+
+    assert len(message_repo.items) == 1
+    assert first.id == "test-123"
+    assert second.id == "test-123"
+    assert first.content == second.content

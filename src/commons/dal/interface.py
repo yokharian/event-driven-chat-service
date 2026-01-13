@@ -14,6 +14,11 @@ class IRepository(ABC):
     implementations to handle their own serialization/deserialization.
     """
 
+    @property
+    @abstractmethod
+    def table_primary_key(self) -> str:
+        pass
+
     @abstractmethod
     def create(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """

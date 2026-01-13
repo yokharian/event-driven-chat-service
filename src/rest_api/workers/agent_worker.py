@@ -3,6 +3,7 @@
 from typing import Any, Dict
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
+from aws_lambda_powertools.shared.dynamodb_deserializer import TypeDeserializer
 from aws_lambda_powertools.utilities.data_classes import event_source, DynamoDBStreamEvent
 from aws_lambda_powertools.utilities.idempotency import (
     DynamoDBPersistenceLayer,
@@ -15,6 +16,7 @@ from commons.repositories import chat_events_repository
 from commons.schemas import ChatEventMessage
 
 from commons.repositories import Settings as CommonRepositoriesSettings
+
 
 
 class Settings(CommonRepositoriesSettings):
@@ -67,8 +69,10 @@ def process_user_message(record: Dict[str, Any]) -> None:
             return
 
         # Validate and parse message
+        ddb_deserializer = TypeDeserializer()
         try:
-            message = ChatEventMessage(**new_image)
+            deserialized = {k: ddb_deserializer.deserialize(v) for k, v in new_image.items()}
+            message = ChatEventMessage(**deserialized)
         except Exception as e:
             logger.error(f"Failed to parse message: {e}", exc_info=True)
             return

@@ -1,11 +1,12 @@
 import dataclasses
 import enum
 import uuid
+from typing import Callable
 from typing import Optional, Dict, Any, List
 
 import boto3
 from aws_lambda_powertools import Logger
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from boto3.resources.base import ServiceResource
 from botocore.exceptions import ClientError
 
@@ -25,24 +26,26 @@ class DynamoDBRepository(IRepository):
     """
 
     table_name: str
-    table_hash_keys: list[str] = dataclasses.field(default_factory=list)
+    table_hash_key: str = "id"
+    table_sort_key: Optional[str] = None
+
+    @property
+    def table_primary_key(self) -> str:
+        return self.table_hash_key
+
     resource: ServiceResource = dataclasses.field(init=False)
-    dynamodb_endpoint_url: Optional[str] = None
     key_auto_assign: bool = True
-    key_factory: callable = lambda: str(uuid.uuid4())
+    key_factory: Callable = lambda: str(uuid.uuid4())
 
     def __post_init__(self):
-        if not self.table_hash_keys:
-            self.table_hash_keys = ["id"]
         self.resource = boto3.resource(
-            "dynamodb",
-            endpoint_url=self.dynamodb_endpoint_url,
+            "dynamodb"
         )
         self.table = self.resource.Table(self.table_name)
 
     def _assign_key(self, item: dict):
         """Auto-assign primary key if key_auto_assign is enabled."""
-        item[self.table_hash_keys[0]] = self.key_factory()
+        item[self.table_hash_key] = self.key_factory()
 
     def create(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -53,18 +56,85 @@ class DynamoDBRepository(IRepository):
         """
         # auto assign "table_hash_key" value using "key_auto_assign" in case it's enabled
         if self.key_auto_assign:
-            if len(self.table_hash_keys) != 1:
-                raise ValueError("Only one hash key is supported for the `key_auto_assign` feature")
-            if item.get(self.table_hash_keys[0]) is None:
+            if item.get(self.table_hash_key) is None:
                 self._assign_key(item)
 
         self.try_except(func=self.table.put_item, Item=item)
         return item
 
-    def get_by_key(self, *, raise_not_found: bool = True, **keys) -> Optional[Dict[str, Any]]:
-        """Get an item by its primary key(s)."""
-        result = self.try_except(func=self.table.get_item, Key=keys)
-        if result and (item := result.get("Item")):
+    def _get_item_by_full_key(self, keys: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Fetch a single item via get_item using the full primary key."""
+        key_dict = {self.table_hash_key: keys[self.table_hash_key]}
+
+        if self.table_sort_key and self.table_sort_key in keys:
+            key_dict[self.table_sort_key] = keys[self.table_sort_key]
+
+        result = self.try_except(func=self.table.get_item, Key=key_dict)
+        return result.get("Item") if result else None
+
+    def _query_by_partition(
+            self,
+            keys: Dict[str, Any],
+            filter_attributes: Optional[Dict[str, Any]],
+            limit: Optional[int] = 1,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Query a partition (optionally with sort key and filters) and return first match."""
+        partition_value = keys.get(self.table_hash_key)
+        if partition_value is None:
+            raise ValueError(
+                f"Missing partition key '{self.table_hash_key}' for get_by_key"
+            )
+
+        key_condition = Key(self.table_hash_key).eq(partition_value)
+        if self.table_sort_key and self.table_sort_key in keys:
+            key_condition = key_condition & Key(self.table_sort_key).eq(
+                keys[self.table_sort_key]
+            )
+
+        filter_expression = None
+        if filter_attributes:
+            for name, value in filter_attributes.items():
+                expr = Attr(name).eq(value)
+                filter_expression = (
+                    expr if filter_expression is None else filter_expression & expr
+                )
+
+        response = self.try_except(
+            func=self.table.query,
+            KeyConditionExpression=key_condition,
+            FilterExpression=filter_expression,
+            Limit=limit,
+        )
+        items = response.get("Items", [])
+        return items if items else None
+
+    def get_by_key(
+            self,
+            *,
+            raise_not_found: bool = True,
+            filter_attributes: Optional[Dict[str, Any]] = None,
+            limit: Optional[int] = 1,
+            **keys,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Flexible get that supports:
+        - direct get_item when full key is provided
+        - partition-only query (optionally filtered) when sort key is omitted
+        """
+        if not self.table_hash_key:
+            raise ValueError("table_hash_key must be configured")
+
+        has_hash = self.table_hash_key in keys
+        has_sort = self.table_sort_key and self.table_sort_key in keys
+        provides_full_key = has_hash and (not self.table_sort_key or has_sort)
+
+        if provides_full_key:
+            item = self._get_item_by_full_key(keys)
+        else:
+            item = self._query_by_partition(keys, filter_attributes, limit)
+            item = item[0] if item else None
+
+        if item:
             return item
         if raise_not_found:
             raise ObjectNotFoundError(f"Object {keys} was not found")
@@ -86,7 +156,9 @@ class DynamoDBRepository(IRepository):
         expression_attribute_names = {}
 
         for name, value in params.items():
-            if name in self.table_hash_keys:
+            if name == self.table_hash_key or (
+                    self.table_sort_key and name == self.table_sort_key
+            ):
                 continue
             if isinstance(value, enum.Enum):
                 value = value.value
@@ -116,7 +188,9 @@ class DynamoDBRepository(IRepository):
         """DynamoDB-specific search method (not part of interface)."""
         raise NotImplementedError
 
-    def search_in_secondary_index(self, *, index_name: str, field, value) -> list[dict]:
+    def search_in_secondary_index(
+            self, *, index_name: str, field, value
+    ) -> list[dict] | None:
         """Query DynamoDB using a secondary index (not part of interface)."""
         response = self.table.query(
             IndexName=index_name, KeyConditionExpression=Key(field).eq(value)
@@ -125,6 +199,7 @@ class DynamoDBRepository(IRepository):
         items = response.get("Items", [])
         if len(items) > 0:
             return items[0]
+        return None
 
     def try_except(self, func: callable, *args, **kwargs):
         """

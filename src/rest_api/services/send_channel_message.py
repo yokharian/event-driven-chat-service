@@ -1,5 +1,4 @@
 from aws_lambda_powertools import Logger
-from aws_lambda_powertools.shared.dynamodb_deserializer import TypeDeserializer
 
 from commons.schemas import ChatEventMessage
 from .base import BaseService
@@ -9,21 +8,16 @@ logger = Logger()
 
 
 class SendChannelMessageService(BaseService):
-    """Service to send a message to a channel."""
-
-    def __init__(self, repository=None):
-        super().__init__(
-            repository=repository,
-            table_name="chat_events",
-        )
 
     def __call__(
-            self, channel_id: str, message_data: ChannelMessageCreate
+        self, channel_id: str, message_data: ChannelMessageCreate
     ) -> ChannelMessageResponse:
-        """Send a message to a channel (writes to chat_events table)."""
-        logger.info(f"Sending message to channel {channel_id}")
+        """Send a message to a channel (idempotent write)."""
+        logger.info(f"Processing message {message_data.id} for channel {channel_id}")
 
-        # Create message event (matches DynamoDB event bus schema)
+        repo_pk = self.repository.table_primary_key
+
+        # Create a message event (matches DynamoDB event bus schema)
         chat_event = ChatEventMessage(
             id=message_data.id,
             channel_id=channel_id,
@@ -32,18 +26,19 @@ class SendChannelMessageService(BaseService):
             content=message_data.content,
             content_type="text",
         )
+        event_partition_value = chat_event.model_dump().get(repo_pk)
 
-        # Use conditional write for idempotency (if event_id exists, skip)
-        # TODO convert to a transaction to comply with ACID
-        exists_response = self.repository.get_by_key(raise_not_found=False, id={
-            'S': chat_event.id,
-        })
-        if exists_response is None:
-            created = self.repository.create(item=chat_event.model_dump())
-            created_event = ChatEventMessage.model_validate(created)
-            return ChannelMessageResponse.model_validate(created_event.model_dump())
-        else:
-            exists_response: dict = exists_response['Item']
-            chat_event = {k: TypeDeserializer().deserialize(v) for k, v in exists_response.items()}
-            chat_event = ChannelMessageResponse.model_validate(chat_event)
-            return chat_event
+        # search existing
+        found = self.repository.get_by_key(
+            **{repo_pk: event_partition_value},  # channel
+            filter_attributes={"id": message_data.id},
+            raise_not_found=False,
+            limit=1,
+        )
+        if found:
+            logger.info(f"Duplicate message {chat_event.id}, returning existing")
+            return ChannelMessageResponse.model_validate(found)
+
+        created = self.repository.create(item=chat_event.model_dump())
+        logger.info(f"Created message {chat_event.id}")
+        return ChannelMessageResponse.model_validate(created)

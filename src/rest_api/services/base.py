@@ -16,7 +16,7 @@ class BaseService:
     or database migration purposes.
     """
 
-    table_primary_key: str
+    table_primary_key: Optional[str] = None
     table_sort_key: Optional[str] = None
     repository: Optional[IRepository] = None
     table_name: str = ""
@@ -28,7 +28,6 @@ class BaseService:
                 table_name=self.table_name,
                 table_hash_key=self.table_primary_key,
                 table_sort_key=self.table_sort_key,
-                dynamodb_endpoint_url=settings.dynamodb_endpoint_url,
             )
 
     def __call__(self, *args, **kwargs):

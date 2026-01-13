@@ -1,10 +1,15 @@
 """Delivery Worker: AWS Lambda handler for delivering messages to WebSocket clients."""
 
-from typing import Any, Dict
+import os
+from typing import Any
 
 import boto3
 from aws_lambda_powertools import Logger, Metrics, Tracer
-from aws_lambda_powertools.utilities.data_classes import event_source, DynamoDBStreamEvent
+from aws_lambda_powertools.shared.dynamodb_deserializer import TypeDeserializer
+from aws_lambda_powertools.utilities.data_classes import (
+    DynamoDBStreamEvent,
+    event_source,
+)
 from aws_lambda_powertools.utilities.idempotency import (
     DynamoDBPersistenceLayer,
     IdempotencyConfig,
@@ -13,17 +18,15 @@ from aws_lambda_powertools.utilities.idempotency import (
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from botocore.exceptions import ClientError
 
+from commons.repositories import Settings as CommonRepositoriesSettings
 from commons.repositories import connections_repo
 from commons.schemas import ChatEventMessage
-from typing import Optional
-
-from commons.repositories import Settings as CommonRepositoriesSettings
 
 
 class Settings(CommonRepositoriesSettings):
-    websocket_api_endpoint: Optional[str] = None
+    websocket_api_endpoint: str | None = None
     delivery_idempotency_table_name: str
-
+    localstack_runtime_id: str
 
 
 settings = Settings()
@@ -33,7 +36,11 @@ logger = Logger()
 tracer = Tracer()
 
 # Initialize clients
-api_gateway = boto3.client("apigatewaymanagementapi")
+api_gateway = boto3.client(
+    "apigatewaymanagementapi",
+    endpoint_url=os.environ.get("AWS_ENDPOINT_URL_APIGATEWAYMANAGEMENTAPI", ""),
+)
+
 
 persistence_layer = DynamoDBPersistenceLayer(
     table_name=settings.delivery_idempotency_table_name,
@@ -48,12 +55,18 @@ idempotency_config = IdempotencyConfig(
 )
 
 
+def is_localstack():
+    return bool(settings.localstack_runtime_id)
+
+
 def get_connections_for_channel(channel_id: str) -> list[str]:
     """Get all WebSocket connection IDs (simplified - in production, store channel->connections mapping)."""
     # For now, get all connections. In production, maintain a channel->connections mapping
     try:
         connections = connections_repo.get_list()
-        return [conn.get("connectionId") for conn in connections if conn.get("connectionId")]
+        return [
+            conn.get("connectionId") for conn in connections if conn.get("connectionId")
+        ]
     except Exception as e:
         logger.error(f"Error getting connections: {e}", exc_info=True)
         return []
@@ -64,7 +77,7 @@ def get_connections_for_channel(channel_id: str) -> list[str]:
     persistence_store=persistence_layer,
     config=idempotency_config,
 )
-def deliver_message(record: Dict[str, Any]) -> None:
+def deliver_message(record: dict[str, Any]) -> None:
     """Send a message to WebSocket clients."""
     try:
         # Only process INSERT events (new messages)
@@ -78,8 +91,12 @@ def deliver_message(record: Dict[str, Any]) -> None:
             return
 
         # Validate and parse message
+        ddb_deserializer = TypeDeserializer()
         try:
-            message = ChatEventMessage(**new_image)
+            deserialized = {
+                k: ddb_deserializer.deserialize(v) for k, v in new_image.items()
+            }
+            message = ChatEventMessage(**deserialized)
         except Exception as e:
             logger.error(f"Failed to parse message: {e}", exc_info=True)
             return
@@ -99,7 +116,7 @@ def deliver_message(record: Dict[str, Any]) -> None:
             try:
                 api_gateway.post_to_connection(
                     ConnectionId=connection_id,
-                    Data=message.model_dump().encode("utf-8"),
+                    Data=message.model_dump_json().encode("utf-8"),
                 )
                 logger.debug(f"Sent message to connection {connection_id}")
             except ClientError as e:
@@ -131,7 +148,9 @@ def deliver_message(record: Dict[str, Any]) -> None:
 @metrics.log_metrics(capture_cold_start_metric=True)
 def handler(event: DynamoDBStreamEvent, context: LambdaContext):
     """AWS Lambda handler for DynamoDB Stream events."""
-    logger.info(f"Received DynamoDB stream event with {len(event.get('Records', []))} records")
+    logger.info(
+        f"Received DynamoDB stream event with {len(event.get('Records', []))} records"
+    )
 
     for record in event.get("Records", []):
         try:
