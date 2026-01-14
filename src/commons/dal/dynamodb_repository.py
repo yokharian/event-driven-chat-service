@@ -1,17 +1,18 @@
 import dataclasses
 import enum
 import uuid
-from typing import Callable
-from typing import Optional, Dict, Any, List
+from collections.abc import Callable
+from typing import Any
 
 import boto3
 from aws_lambda_powertools import Logger
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Attr, Key
 from boto3.resources.base import ServiceResource
 from botocore.exceptions import ClientError
 
 from commons.dal.interface import IRepository
 from commons.dynamodb.exceptions import ObjectNotFoundError, RepositoryError
+
 
 logger = Logger()
 
@@ -27,7 +28,8 @@ class DynamoDBRepository(IRepository):
 
     table_name: str
     table_hash_key: str = "id"
-    table_sort_key: Optional[str] = None
+    table_sort_key: str | None = None
+    table_idempotency_key: str | None = None
 
     @property
     def table_primary_key(self) -> str:
@@ -38,16 +40,14 @@ class DynamoDBRepository(IRepository):
     key_factory: Callable = lambda: str(uuid.uuid4())
 
     def __post_init__(self):
-        self.resource = boto3.resource(
-            "dynamodb"
-        )
+        self.resource = boto3.resource("dynamodb")
         self.table = self.resource.Table(self.table_name)
 
     def _assign_key(self, item: dict):
         """Auto-assign primary key if key_auto_assign is enabled."""
         item[self.table_hash_key] = self.key_factory()
 
-    def create(self, item: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, item: dict[str, Any]) -> dict[str, Any]:
         """
         Create a new item in DynamoDB.
 
@@ -55,14 +55,13 @@ class DynamoDBRepository(IRepository):
         the key is not already present in the item.
         """
         # auto assign "table_hash_key" value using "key_auto_assign" in case it's enabled
-        if self.key_auto_assign:
-            if item.get(self.table_hash_key) is None:
-                self._assign_key(item)
+        if self.key_auto_assign and item.get(self.table_hash_key) is None:
+            self._assign_key(item)
 
         self.try_except(func=self.table.put_item, Item=item)
         return item
 
-    def _get_item_by_full_key(self, keys: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _get_item_by_full_key(self, keys: dict[str, Any]) -> dict[str, Any] | None:
         """Fetch a single item via get_item using the full primary key."""
         key_dict = {self.table_hash_key: keys[self.table_hash_key]}
 
@@ -73,11 +72,11 @@ class DynamoDBRepository(IRepository):
         return result.get("Item") if result else None
 
     def _query_by_partition(
-            self,
-            keys: Dict[str, Any],
-            filter_attributes: Optional[Dict[str, Any]],
-            limit: Optional[int] = 1,
-    ) -> Optional[List[Dict[str, Any]]]:
+        self,
+        keys: dict[str, Any],
+        filter_attributes: dict[str, Any] | None,
+        limit: int | None = 1,
+    ) -> list[dict[str, Any]] | None:
         """Query a partition (optionally with sort key and filters) and return first match."""
         partition_value = keys.get(self.table_hash_key)
         if partition_value is None:
@@ -109,13 +108,13 @@ class DynamoDBRepository(IRepository):
         return items if items else None
 
     def get_by_key(
-            self,
-            *,
-            raise_not_found: bool = True,
-            filter_attributes: Optional[Dict[str, Any]] = None,
-            limit: Optional[int] = 1,
-            **keys,
-    ) -> Optional[Dict[str, Any]]:
+        self,
+        *,
+        raise_not_found: bool = True,
+        filter_attributes: dict[str, Any] | None = None,
+        limit: int | None = 1,
+        **keys,
+    ) -> dict[str, Any] | None:
         """
         Flexible get that supports:
         - direct get_item when full key is provided
@@ -140,12 +139,12 @@ class DynamoDBRepository(IRepository):
             raise ObjectNotFoundError(f"Object {keys} was not found")
         return None
 
-    def get_list(self) -> List[Dict[str, Any]]:
+    def get_list(self) -> list[dict[str, Any]]:
         """Get all items from the DynamoDB table using scan operation."""
         response = self.try_except(func=self.table.scan)
         return response.get("Items", [])
 
-    def update(self, params: Dict[str, Any], **keys) -> None:
+    def update(self, params: dict[str, Any], **keys) -> None:
         """
         Update an existing item in DynamoDB.
 
@@ -157,7 +156,7 @@ class DynamoDBRepository(IRepository):
 
         for name, value in params.items():
             if name == self.table_hash_key or (
-                    self.table_sort_key and name == self.table_sort_key
+                self.table_sort_key and name == self.table_sort_key
             ):
                 continue
             if isinstance(value, enum.Enum):
@@ -189,7 +188,7 @@ class DynamoDBRepository(IRepository):
         raise NotImplementedError
 
     def search_in_secondary_index(
-            self, *, index_name: str, field, value
+        self, *, index_name: str, field, value
     ) -> list[dict] | None:
         """Query DynamoDB using a secondary index (not part of interface)."""
         response = self.table.query(

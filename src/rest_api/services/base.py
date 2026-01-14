@@ -1,9 +1,7 @@
 import dataclasses
-from typing import Optional
 
 from commons.dal import DynamoDBRepository
 from commons.dal.interface import IRepository
-from commons.repositories import settings
 
 
 @dataclasses.dataclass
@@ -16,9 +14,10 @@ class BaseService:
     or database migration purposes.
     """
 
-    table_primary_key: Optional[str] = None
-    table_sort_key: Optional[str] = None
-    repository: Optional[IRepository] = None
+    table_primary_key: str | None = None
+    table_sort_key: str | None = None
+    table_idempotency_key: str | None = None
+    repository: IRepository | None = None
     table_name: str = ""
 
     def __post_init__(self):
@@ -28,6 +27,7 @@ class BaseService:
                 table_name=self.table_name,
                 table_hash_key=self.table_primary_key,
                 table_sort_key=self.table_sort_key,
+                table_idempotency_key=self.table_idempotency_key,
             )
 
     def __call__(self, *args, **kwargs):

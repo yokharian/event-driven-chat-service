@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 
 class IRepository(ABC):
@@ -16,11 +16,16 @@ class IRepository(ABC):
 
     @property
     @abstractmethod
+    def table_idempotency_key(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
     def table_primary_key(self) -> str:
         pass
 
     @abstractmethod
-    def create(self, item: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, item: dict[str, Any]) -> dict[str, Any]:
         """
         Create a new item in the database.
 
@@ -36,7 +41,9 @@ class IRepository(ABC):
         pass
 
     @abstractmethod
-    def get_by_key(self, *, raise_not_found: bool = True, **keys) -> Optional[Dict[str, Any]]:
+    def get_by_key(
+        self, *, raise_not_found: bool = True, **keys
+    ) -> dict[str, Any] | None:
         """
         Get an item by its primary key(s).
 
@@ -55,7 +62,7 @@ class IRepository(ABC):
         pass
 
     @abstractmethod
-    def get_list(self) -> List[Dict[str, Any]]:
+    def get_list(self) -> list[dict[str, Any]]:
         """
         Get all items from the database.
 
@@ -68,7 +75,7 @@ class IRepository(ABC):
         pass
 
     @abstractmethod
-    def update(self, params: Dict[str, Any], **keys) -> None:
+    def update(self, params: dict[str, Any], **keys) -> None:
         """
         Update an existing item in the database.
 
