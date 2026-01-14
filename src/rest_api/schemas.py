@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel, ConfigDict, alias_generators
 
 from commons.schemas import ChatEventMessage
@@ -19,8 +17,11 @@ class Channel(BaseSchema):
     """Channel metadata."""
 
     channel_id: str
-    name: Optional[str] = None
-    created_at: Optional[int] = None
+    name: str | None = None
+    created_at: int | None = None
+
+
+# /channels/{channel}/messages
 
 
 class ChannelMessageCreate(BaseSchema):
@@ -29,8 +30,19 @@ class ChannelMessageCreate(BaseSchema):
     id: str
     content: str
     role: str = "user"
-    sender_id: Optional[str] = None
+    sender_id: str
 
 
 class ChannelMessageResponse(ChatEventMessage):
     """Channel message response model."""
+
+
+# /channels/{channel}/messages/websocket
+
+
+class ChannelMessageCreateWebsocket(ChannelMessageCreate):
+    """Request schema for REST-to-WebSocket message publishing."""
+
+
+class ChannelMessageWebsocket(ChannelMessageResponse):
+    """Response schema returned after WebSocket broadcast."""

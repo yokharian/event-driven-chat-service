@@ -100,7 +100,6 @@ Resources:
         SSEEnabled: True
       TableName: !Ref StateTableName
 
-  # Idempotency Table for Agent Worker
   AgentIdempotencyTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -118,7 +117,6 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
-  # Idempotency Table for Delivery Worker
   DeliveryIdempotencyTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -165,7 +163,6 @@ Resources:
       Environment:
         Variables:
           CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
-          CONNECTIONS_TABLE_NAME: !Ref StateTableName
       Events:
         SendChannelMessage:
           Type: Api
@@ -191,7 +188,6 @@ Resources:
       Environment:
         Variables:
           CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
-          CONNECTIONS_TABLE_NAME: !Ref StateTableName
       Events:
         GetChannelMessages:
           Type: Api
@@ -203,41 +199,30 @@ Resources:
       BuildMethod: makefile
       BuildTarget: build-GetChannelMessagesFunction
 
-  # Log Groups for REST API Functions
-  SendChannelMessageFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
+  SendChannelMessageWebsocketFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-send-channel-message-${Environment}'
-      RetentionInDays: 7
-
-  SendChannelMessageWebsocketFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-send-channel-message-websocket-${Environment}'
-      RetentionInDays: 7
-
-  GetChannelMessagesFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/chat-get-channel-messages-${Environment}'
-      RetentionInDays: 7
-
-  RestApiEndpointParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/chat/${Environment}/rest_api_endpoint"
-      Type: String
-      Description: REST API invoke URL for the chat service
-      Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
-
-  # SSM parameter to share the REST API invoke URL with clients (frontend reads this)
-  RestApiIdParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/chat/${Environment}/rest_api_id"
-      Type: String
-      Description: REST API ID for the chat service
-      Value: !Ref RestApi
+      FunctionName: !Sub 'chat-send-channel-message-websocket-${Environment}'
+      Handler: rest_api.handlers.send_channel_message_websocket.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref SendChannelMessageWebsocketFunctionLogGroup
+        LogFormat: JSON
+        SystemLogLevel: INFO
+        ApplicationLogLevel: INFO
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE_NAME: !Ref StateTableName
+      Events:
+        SendChannelMessageWebsocket:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /channels/{channel_id}/messages/websocket
+            Method: POST
+    Metadata:
+      BuildMethod: makefile
+      BuildTarget: build-SendChannelMessageWebsocketFunction
 
   # Worker Functions
   AgentFunction:
@@ -282,7 +267,10 @@ Resources:
         ApplicationLogLevel: INFO
       Environment:
         Variables:
-          CHAT_EVENTS_TABLE_NAME: !Ref EventBusTableName
+          REST_API_ENDPOINT: '/channels/{channel}/messages/websocket' # target to request
+          REST_API_ID: !Ref RestApi
+          REST_API_STAGE: !Ref Environment
+          REST_API_REGION: ${AWS::Region}
           CONNECTIONS_TABLE_NAME: !Ref StateTableName
           DELIVERY_IDEMPOTENCY_TABLE_NAME: !Ref DeliveryIdempotencyTableName
       Events:
@@ -297,7 +285,7 @@ Resources:
       BuildMethod: makefile
       BuildTarget: build-DeliveryFunction
 
-  # Log Groups for Worker Functions
+  # Log Groups
   AgentFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -308,6 +296,24 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/aws/lambda/chat-delivery-worker-${Environment}'
+      RetentionInDays: 7
+
+  SendChannelMessageFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/chat-send-channel-message-${Environment}'
+      RetentionInDays: 7
+
+  SendChannelMessageWebsocketFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/chat-send-channel-message-websocket-${Environment}'
+      RetentionInDays: 7
+
+  GetChannelMessagesFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/chat-get-channel-messages-${Environment}'
       RetentionInDays: 7
 
   # IAM Role for Lambda Functions
@@ -355,11 +361,24 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/chat/${Environment}/rest_api_endpoint"
               # WebSocket API permissions (only used in production)
               - Effect: Allow
                 Action:
                   - execute-api:ManageConnections
                 Resource: '*'
+
+  # SSM parameter to share the REST API invoke URL with clients (frontend reads this)
+  RestApiIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/chat/${Environment}/rest_api_id"
+      Type: String
+      Description: REST API ID for the chat service
+      Value: !Ref RestApi
 
 Outputs:
   RestApiEndpoint:
@@ -379,15 +398,3 @@ Outputs:
     Value: !GetAtt ConnectionsTable.Arn
     Export:
       Name: !Sub "${AWS::StackName}-ConnectionsTableArn"
-
-  AgentFunctionArn:
-    Description: "Agent worker function ARN"
-    Value: !GetAtt AgentFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-AgentFunctionArn"
-
-  DeliveryFunctionArn:
-    Description: "Delivery worker function ARN"
-    Value: !GetAtt DeliveryFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-DeliveryFunctionArn"

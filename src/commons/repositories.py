@@ -21,8 +21,7 @@ settings = Settings()
 connections_repo = DynamoDBRepository(
     table_name=settings.connections_table_name,
     table_hash_key=settings.connections_table_pk,
-    table_sort_key=settings.chat_events_table_sk,
-    table_idempotency_key=settings.table_idempotency_key,
+    table_idempotency_key=settings.connections_table_pk,
     key_auto_assign=True,
 )
 
@@ -30,5 +29,6 @@ chat_events_repository = DynamoDBRepository(
     table_name=settings.chat_events_table_name,
     table_hash_key=settings.chat_events_table_pk,
     table_sort_key=settings.chat_events_table_sk,
+    table_idempotency_key=settings.chat_events_table_pk,
     key_auto_assign=True,
 )

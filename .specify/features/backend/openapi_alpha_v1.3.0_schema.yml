@@ -35,7 +35,7 @@ tags:
   - name: Channels
     description: Channel-based messaging endpoints
   - name: WebSocket
-    description: WebSocket connection management
+    description: WebSocket connection management endpoints
 
 paths:
   /channels/{channel_id}/messages:
@@ -113,6 +113,42 @@ paths:
         Alternative to WebSocket for sending messages. Sends a message to a specific channel.
         The message is persisted to DynamoDB and triggers downstream processing via DynamoDB Streams.
       operationId: sendChannelMessage
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          description: Unique identifier for the channel
+          schema:
+            type: string
+            example: "general"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelMessageCreate'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelMessage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /channels/{channel_id}/messages/websocket:
+    post:
+      tags:
+        - Channels
+      summary: Send message to a websocket channel via REST
+      description: |
+        Alternative to WebSocket for sending messages. Sends a message to a specific channel using websocket protocol.
+      operationId: sendWebsocketChannelMessage
       parameters:
         - name: channel_id
           in: path

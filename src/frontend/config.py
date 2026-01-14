@@ -58,20 +58,9 @@ settings = ConsumerSettings()
 
 
 def _resolve_api_base() -> str | None:
-    """
-    Resolve the REST API base URL. Priority:
-    1) Explicit env override: APIGW_REST_API_ID
-    2) Fetch SSM using env: API_ID_SSM_PARAM
-    """
+    """Resolve the REST API base URL Fetching SSM"""
     # noinspection HttpUrlsUsage
     URL_FORMAT = "http://{FQDN}:4566/_aws/execute-api/{ID}/{STAGE}/"
-
-    rest_api_id = settings.apigw_rest_api_id
-    if rest_api_id:
-        logger.info(f"API ID found using env var { settings.apigw_rest_api_id=}")
-        return URL_FORMAT.format(
-            FQDN=settings.localstack_dns, ID=rest_api_id, STAGE=settings.apigw_stage
-        )
 
     # Request api gateway id from an SSM parameter
     ssm = boto3.client(

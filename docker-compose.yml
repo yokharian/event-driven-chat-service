@@ -7,15 +7,12 @@ services:
       - "4510-4559:4510-4559"
     environment:
       - LOCALSTACK_SERVICES=lambda,cloudformation,iam,sts,logs,dynamodb,apigateway,s3,dynamodbstreams,kms,ssm
-#      - LOCALSTACK_LS_LOG=debug
       - LOCALSTACK_DEBUG=1
       - LOCALSTACK_PERSISTENCE=1
-      - LOCALSTACK_PROVIDER_OVERRIDE_CLOUDFORMATION=engine-legacy
       - LOCALSTACK_ACTIVATE_PRO=0
       - LOCALSTACK_DOCKER_HOST=unix:///var/run/docker.sock
       - LOCALSTACK_DYNAMODB_REMOVE_EXPIRED_ITEMS=1 # Enables Time to Live (TTL) feature
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN-}
-      - AWS_ENDPOINT_URL_APIGATEWAYMANAGEMENTAPI=""
     volumes:
       - "${LOCALSTACK_VOLUME_DIR:-./.localstack}:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
@@ -43,8 +40,6 @@ services:
     depends_on:
       localstack:
         condition: service_healthy
-    networks:
-      - default
 
   websocket-api:
     hostname: wsserver
@@ -86,8 +81,6 @@ services:
       - DOCKER_WS_SERVER_URL=ws://wsserver:8080/ws
       # SSM key to retrieve
       - API_ID_SSM_PARAM=/chat/local/rest_api_id
-      # Optional fallback if SSM is unavailable
-      - APIGW_REST_INVOKE_URL=
     volumes:
       - ./src:/app/src
     depends_on:

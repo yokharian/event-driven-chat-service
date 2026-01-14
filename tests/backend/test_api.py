@@ -144,10 +144,12 @@ def test_send_channel_message_websocket_service_broadcasts_and_embeds_channel_id
     )
     client = FakeApigwClient()
 
-    service = SendChannelMessageWebsocketService(connections_repository=connections_repo)
+    service = SendChannelMessageWebsocketService(repository=connections_repo)
     service._apigw_client = client  # inject fake client
 
-    payload = ChannelMessageCreateWebsocket(content="hi", user_id="u-1", metadata={"foo": "bar"})
+    payload = ChannelMessageCreateWebsocket(
+        id="m-1", content="hi", role="user", sender_id="u-1"
+    )
 
     result = service(channel_id="general", message_data=payload)
 
@@ -155,19 +157,18 @@ def test_send_channel_message_websocket_service_broadcasts_and_embeds_channel_id
     assert len(client.sent) == 2
     body = json.loads(client.sent[0]["data"])
     assert body["channelId"] == "general"
-    assert body["userId"] == "u-1"
+    assert body["senderId"] == "u-1"
     assert body["content"] == "hi"
-    assert body["metadata"] == {"foo": "bar"}
 
 
 def test_send_channel_message_websocket_service_prunes_stale_connections():
     connections_repo = FakeConnectionsRepo(connections=[{"connectionId": "gone-1"}])
     client = FakeApigwClient(gone_id="gone-1")
 
-    service = SendChannelMessageWebsocketService(connections_repository=connections_repo)
+    service = SendChannelMessageWebsocketService(repository=connections_repo)
     service._apigw_client = client
 
-    payload = ChannelMessageCreateWebsocket(content="hi", user_id="u-1")
+    payload = ChannelMessageCreateWebsocket(id="m-1", content="hi", role="user", sender_id="u-1")
     service(channel_id="general", message_data=payload)
 
     assert connections_repo.deleted == ["gone-1"]
