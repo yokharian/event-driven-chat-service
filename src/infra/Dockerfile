@@ -45,8 +45,6 @@ ENV STATE_TABLE_NAME=connections
 ENV EVENT_BUS_TABLE_NAME=chat_events
 
 # SAM parameters
-ENV BUILD_DIR=.aws-sam/build
-ENV TEMPLATE_FILE=${BUILD_DIR}/template.yaml
 ENV SOURCE_TEMPLATE_FILE=/app/src/infra/template-dev.yaml
 ENV DEPLOY_LOG=/app/src/sam-deploy.log
 
