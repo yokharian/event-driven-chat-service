@@ -4,19 +4,10 @@ Local WebSocket server that mimics AWS API Gateway WebSocket API behavior.
 This server allows local development without requiring API Gateway (a paid LocalStack feature).
 It creates the same event structures that API Gateway would create and invokes the Lambda
 handlers directly.
-
-Usage:
-    python -m src.websocket_api.local_server
-
-Environment Variables:
-    TABLE_NAME: DynamoDB table name for connections (default: connections)
-    AWS_REGION: AWS region (default: us-east-1)
-    WS_PORT: WebSocket server port (default: 8080)
 """
 
 import asyncio
 import json
-import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -236,6 +227,10 @@ async def lifespan(app: FastAPI):
 
     boto3.client = patched_client
 
+    from websocket_api.onconnect.app import handler as onconnect_handler  # noqa: E402
+    from websocket_api.ondisconnect.app import handler as ondisconnect_handler  # noqa: E402
+    from websocket_api.sendmessage.app import handler as sendmessage_handler  # noqa: E402
+
     print("✓ API Gateway Management API patched for local WebSocket delivery")
 
     try:
@@ -315,13 +310,3 @@ async def websocket_endpoint(websocket: WebSocket):
             ondisconnect_handler(create_disconnect_event(connection_id), context)
         except Exception as exc:
             print(f"Error in disconnect handler: {exc}")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    port = int(os.getenv("WS_PORT", "8080"))
-    print(f"Starting local WebSocket API Gateway on ws://localhost:{port}/ws")
-    print(f"Test page: http://localhost:{port}/")
-
-    uvicorn.run(app, host="0.0.0.0", port=port)

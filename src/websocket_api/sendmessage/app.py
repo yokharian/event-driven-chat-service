@@ -14,10 +14,6 @@ from commons.repositories import connections_repo
 logger = Logger()
 
 
-# Initialize clients
-apigw_management_api = boto3.client("apigatewaymanagementapi")
-
-
 @event_parser(model=APIGatewayWebSocketMessageEventModel)
 def handler(event: APIGatewayWebSocketMessageEventModel, context: Any) -> Dict[str, Any]:
     """
@@ -30,6 +26,8 @@ def handler(event: APIGatewayWebSocketMessageEventModel, context: Any) -> Dict[s
     Returns:
         Response dictionary with statusCode and body
     """
+    apigw_management_api = boto3.client("apigatewaymanagementapi")
+
     # Get all connection IDs using repository
     try:
         connections: List[Dict[str, Any]] = connections_repo.get_list()
